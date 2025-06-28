@@ -20,7 +20,9 @@ Les chiffres sont pour l'analyse quantitative, ce que les mots sont pour l'analy
 
 # Références
 
-https://www.rstudio.com/wp-content/uploads/2016/09/RegExCheatsheet.pdf
+https://evoldyn.gitlab.io/evomics-2018/ref-sheets/R_strings.pdf
+https://cheatography.com/davechild/cheat-sheets/regular-expressions/
+https://r4ds.hadley.nz/strings.html
 
 
 # Données
@@ -62,7 +64,7 @@ Dans d'autres langages, "chaîne" fait souvent référence à une *séquence* d'
 
 Notez qu'il s'agit de *séquences* de nombres plutôt que de nombres uniques, et donc de *chaînes*.
 
-Une chose qui sépare une chaîne d'un nombre est que les zéros en tête sont significatifs: `01! = 1`
+Une chose qui sépare une chaîne d'un nombre est que les zéros en tête sont significatifs: `01 != 1`
 
 # Les fonctions pour travailler avec les chaines de charactères (avec Basic R)
 
@@ -144,8 +146,10 @@ paste0(1:5, letters[1:5])
 ## `paste()` 
 
 `paste()` a deux options: sep et collapse.
-- `sep =` indique le séparateur à utiliser pour créer un nouveau vecteur en combinant plusieurs vecteurs, 
-- `collapse =` indique le séparateur à utiliser pour combiner des vecteurs en une seule chaîne.
+
+- `sep =` indique le séparateur à utiliser pour **créer un nouveau** vecteur en combinant plusieurs vecteurs, 
+
+- `collapse =` indique le séparateur à utiliser pour **combiner** des vecteurs en une seule chaîne.
 
 Voici quelques exemples; assurez-vous de comprendre comment chaque ensemble d'arguments produit leurs résultats:
 
@@ -189,6 +193,7 @@ Il fournit des fonctions qui:
   - replace, 
   - split.
 - Ces fonctions utilisent **des expressions régulières** pour décrire les modèles 
+
 - Les versions Base R et `stringi` existent, mais sont plus difficiles à utiliser
 
 De façon pratique, **la plupart** des fonctions `stringr` commence par "`str_`" pour permettre à RStudio d'auto-completer ce que vous saisissez.
@@ -217,6 +222,7 @@ str_sub("Washington", -3, -5) # Pourquoi ceci ne marche pas?
 - `str_c()` ("string combine") est exactement comme `paste()` mais où la valeur par défaut est `sep =""` (comme `paste0()`)
 
 ```{r str_c_example}
+
 letters
 letters[1:5]
 1:5
@@ -360,30 +366,13 @@ coffee1 %>% distinct(Name) %>% head()
 
 ```
 
-<!--
-## Histogramme
-
-Prenons chaque identifiant d'entreprise unique, conservons le score d'inspection le plus récent et examinons un histogramme des scores:
-
-```{r coffee_histogram, fig.height = 3, dev = "svg" }
-
-coffee %>% 
-  select(Business_ID, Name, Inspection_Score, Date) %>%
-  group_by(Business_ID) %>% 
-  filter(Date == max(Date)) %>% 
-  distinct(.keep_all=TRUE) %>% 
-  ggplot(aes(Inspection_Score)) + 
-  geom_histogram(bins=8) + xlab("Score d'inspection le plus récent") + ylab("") +
-    ggtitle("Histogramme des résultats d'inspection pour les cafés de Seattle")
-```
--->
-
 
 ## `str_detect()`: Patterns
 
 Cherchons des numéros de téléphone dont les trois premiers chiffres sont "206" en utilisant `str_detect ()`.
 
 Nous voudrons que cela fonctionne, qu'ils aient des parenthèses au début ou non.
+
 Mais PAS pour correspondre à "206" se trouvant ailleurs:
 
 
@@ -443,7 +432,6 @@ restaurants %>%
   group_by(contient_nombre_206) %>% 
   tally()
 
-?tally
 ```
 
 
