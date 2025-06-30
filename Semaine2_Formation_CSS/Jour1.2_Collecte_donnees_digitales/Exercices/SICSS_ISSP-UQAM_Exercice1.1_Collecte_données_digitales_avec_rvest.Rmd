@@ -1,5 +1,5 @@
 ---
-title: "Exercice 2.1: Accès à l'information et attitudes face à la violence conjugale"
+title: "Exercice 1.1: Accès à l'information et attitudes face à la violence conjugale"
 author: "Visseho Adjiwanou, PhD."
 institute: "SICSS - Montréal"
 date: "`r format(Sys.time(), '%d %B %Y')`"

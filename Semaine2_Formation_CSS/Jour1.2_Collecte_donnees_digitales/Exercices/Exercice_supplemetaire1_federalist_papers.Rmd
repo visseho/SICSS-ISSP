@@ -1,0 +1,33 @@
+---
+title: 'Exercice 1: Collecte données digitales '
+#subtitle: 'web scraping'
+author: "Visseho Adjiwanou, PhD."
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_document
+---
+# Question 1
+
+L'utilisation généralisée d'Internet a conduit à une quantité astronomique de données textuelles numérisées qui s'accumulent chaque seconde via les e-mails, les sites Web et les médias sociaux. L'analyse des sites de blog et des publications sur les réseaux sociaux peut donner de nouvelles perspectives sur le comportement et les opinions humains. Dans le même temps, des efforts à grande échelle pour numériser des articles publiés, des livres et des documents gouvernementaux ont été en cours, offrant des opportunités intéressantes de revoir des questions déjà étudiées, en analysant de nouvelles données.
+
+Cet exemple est basé sur le papier de F. Mosteller and D.L. Wallace (1963) “Inference in an authorship problem.” Journal of the American Statistical Association, vol. 58, no. 302, pp. 275–309.
+
+Vous allez analyser le texte **The Federalist**, plus communément appelé **The Federalist Papers**. Les *Federalist*, dont la page de titre est affichée ci dessous se compose de 85 essais attribués à [Alexander Hamilton](https://www.penguinrandomhouse.com/authors/11693/alexander-hamilton/), [John Jay](https://www.penguinrandomhouse.com/authors/45268/john-jay/) et [James Madison](https://www.penguinrandomhouse.com/authors/18636/james-madison/) de 1787 à 1788 afin d'encourager les habitants de New York à ratifier la nouvelle constitution américaine. Parce que Hamilton et Madison ont contribué à la rédaction de la Constitution, les chercheurs considèrent les *Federalist Papers* comme un document principal reflétant les intentions des auteurs de la Constitution.
+
+Les *Federalist Papers* ont été initialement publiés dans divers journaux de l'État de New York sous le pseudonyme de «Publius». Pour cette raison, la paternité de chaque article a fait l'objet de recherches savantes. Selon la *Library of Congress*, deux experts estiment que Hamilton a écrit 51 essais tandis que Madison en a rédigé 15. De plus, Hamilton et Madison ont rédigé conjointement 3 articles tandis que John Jay a écrit 5. Les 11 essais restants ont été écrits soit par Hamilton soit par Madison, bien que les chercheurs contestent lequel. L'objectif de cet exercice esr d'analyser le texte des *Federalist Papers pour prédire les auteurs des 11 essais.* 
+
+Voici les documents connus pour être écrits par chaque auteur:
+
+  - Hamilton: les numéros 1, 6–9, 11–13, 15–17, 21–36, 59–61 et 65–85. 
+  - Madison: les numéros 10, 14, 37–48 et 58. 
+  - Hamilton et Madison: les numéros 18–20. 
+  - John Jay: les numéros  2–5 et 64.
+
+Le texte des 85 essais est extrait du site Web de la Bibliothèque du Congrès et stocké sous le nom **fpXX.txt**, où XX représente le numéro d'essai allant de 01 à 85. Chaque fichier de données contient les données textuelles de son essai correspondant. Voir le tableau 5.1, qui affiche la première et la dernière page de **The Federalist Paper no. 1** à titre d'exemple.
+
+![Table 1. The Federalist Papers Data](fed1.png)
+
+![Table 2. The Federalist Papers Data](fed2.png)
+
+
+1. Utiliser l'une des techniques de grattage apprises en classe pour gratter ce site https://guides.loc.gov/federalist-papers/full-text pour collecter les données et transformer le tableau en base de données. Vous pouvez remarquer que ces textes sont présentés par dizaine comme dans le lien ici: https://guides.loc.gov/federalist-papers/text-1-10
+

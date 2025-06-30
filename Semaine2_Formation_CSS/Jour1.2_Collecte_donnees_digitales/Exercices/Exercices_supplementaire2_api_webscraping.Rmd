@@ -1,0 +1,286 @@
+---
+title: 'Atelier : Utilisation d''API dans le Web Scraping'
+author: "Visséh Adjiwanou"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+Cet atelier présente trois cas pratiques d'utilisation d'API dans un contexte de web scraping à des fins d’analyse sociale. Il utilise les packages `redditExtractoR`, `tuber` et `gh`.
+
+---
+
+# Labo 1 – Reddit : Perception de l’Afrique
+
+## Objectif
+
+Explorer les publications Reddit contenant le mot "Africa" pour comprendre les perceptions sociales.
+
+## Code
+
+```{r}
+library(redditExtractoR)
+
+# 1. Recherche de threads contenant "Africa"
+reddit_urls <- find_thread_urls(keywords = "Africa", subreddit = "worldnews", sort_by = "relevance")
+
+# 2. Extraction du contenu du premier thread
+reddit_data <- get_thread_content(reddit_urls$url[1])
+
+# 3. Affichage des titres
+head(reddit_data$title)
+```
+
+---
+
+# Labo 2 – gtrends 
+---
+
+Voici la version de l’exercice formulée comme **énoncé pédagogique sans les codes**, prête à intégrer dans un devoir ou un TP :
+
+---
+
+### **Exercice : Explorer les tendances de recherche Google autour de l’Intelligence Artificielle en Afrique**
+
+#### **Objectif :**
+
+Vous allez utiliser l’API de Google Trends via le package `gtrendsR` pour analyser l’évolution de l’intérêt pour l’intelligence artificielle dans plusieurs pays africains, à partir des données de recherche sur Google.
+
+#### **Contexte :**
+
+L’Intelligence Artificielle (IA) suscite un intérêt croissant à l’échelle mondiale. Vous êtes chargé·e de produire un rapport de veille exploratoire pour un centre de recherche africain souhaitant comprendre les dynamiques d’intérêt autour de l’IA dans différents contextes nationaux.
+
+---
+
+### **Consignes :**
+
+1. **Analyse nationale (Côte d’Ivoire)**
+   Interrogez Google Trends pour visualiser l’évolution de l’intérêt pour le mot-clé *"intelligence artificielle"* en Côte d’Ivoire au cours des 5 dernières années.
+
+   * Produisez un graphique de tendance temporelle.
+   * Identifiez les périodes de pic ou de baisse d’intérêt.
+   * Formulez des hypothèses sur les causes possibles (contexte politique, médiatique, technologique, etc.).
+
+2. **Comparaison entre pays africains**
+   Réalisez la même analyse pour trois autres pays : Sénégal, Nigeria et Afrique du Sud.
+
+   * Comparez l’évolution des tendances dans un seul graphique.
+   * Analysez les différences entre les pays en matière d’intérêt pour l’IA.
+   * Quel pays semble avoir un intérêt plus soutenu ? Lequel montre une croissance récente ?
+
+3. **Analyse régionale (Nigeria)**
+   Examinez les données régionales disponibles pour le Nigeria afin de déterminer quelles régions manifestent le plus d’intérêt pour l’IA.
+
+   * Quelles régions ressortent ?
+   * Y a-t-il une correspondance avec les pôles technologiques ou les centres universitaires connus ?
+
+4. **Analyse complémentaire : mots-clés associés**
+   Identifiez les recherches associées au mot-clé *"intelligence artificielle"* dans les pays analysés.
+
+   * Quels sont les mots-clés associés les plus fréquents ?
+   * Que nous apprennent-ils sur les préoccupations ou usages dominants liés à l’IA dans chaque pays ?
+
+5. **Extension individuelle**
+   Reprenez l’exercice en remplaçant le mot-clé par un autre lié aux technologies numériques (*"big data"*, *"cybersécurité"*, *"ChatGPT"*, etc.) et comparez l’intérêt dans deux ou trois pays africains de votre choix.
+
+   * Comparez les résultats avec ceux obtenus pour *"intelligence artificielle"*.
+   * Quelle technologie semble la plus populaire selon Google Trends ?
+
+---
+
+### **Livrables attendus :**
+
+* Graphiques annotés des tendances temporelles.
+* Analyse comparative entre pays.
+* Tableau ou graphique des régions les plus actives (le cas échéant).
+* Synthèse écrite (1 page max) de vos principales conclusions.
+
+
+# Labo 3 – GitHub : Contributions open source africaines
+
+## Objectif
+
+Analyser les projets africains sur GitHub à travers les dépôts publics d’organisations connues.
+
+## Code
+
+```{r}
+library(gh)
+
+# Exemple : projets publics de Hadley Wickham (remplacer par un utilisateur africain)
+repos <- gh("/users/hadley/repos")
+
+# Afficher les noms des projets
+sapply(repos, function(x) x$name)
+```
+
+---
+
+# Remarques pédagogiques
+
+- Encourager les étudiants à explorer la pagination (`page` dans l’API GitHub)
+- Créer une clé API Google à distribuer pour `tuber` : AIzaSyDwTBxdr-6hTGnMVdOEtQiinmm4MQlALWs
+    - Client ID: 965834895372-m7bj0khe0h08u7lkn18i4239hp8v7m7f.apps.googleusercontent.com
+    - Client secret: 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
+- Utiliser `textdata::get_sentiments()` pour l’analyse des sentiments Reddit
+
+# Voici les étapes à suivre pour obtenir une **clé API Google Cloud** (nécessaire pour utiliser l’API YouTube avec le package `tuber`) :
+
+
+
+# Labo extra: YouTube : Éducation africaine sur YouTube
+
+## Objectif
+
+Analyser la visibilité de l'éducation en Afrique sur YouTube via l'API YouTube.
+
+## Code
+
+```{r, eval=FALSE}
+library(tuber)
+
+# Authentification
+yt_oauth("YOUR_CLIENT_ID", "YOUR_CLIENT_SECRET")
+
+# Recherche de vidéos
+res <- yt_search("University Africa")
+
+# Aperçu
+head(res[, c("title", "viewCount", "likeCount")])
+```
+
+
+---
+
+### Étapes pour obtenir une clé API YouTube
+
+#### 1. **Créer un compte Google Cloud**
+
+* Rendez-vous sur : [https://console.cloud.google.com/](https://console.cloud.google.com/)
+* Connectez-vous avec un compte Google
+* Créez un **nouveau projet** (ou sélectionnez un projet existant)
+
+#### 2. **Activer l’API YouTube Data API v3**
+
+* Dans le menu de gauche, cliquez sur **"API & Services" > "Library"**
+* Recherchez **"YouTube Data API v3"**
+* Cliquez dessus puis cliquez sur **"Enable"**
+
+#### 3. **Créer les identifiants (clé API)**
+
+* Allez dans **"API & Services" > "Credentials"**
+* Cliquez sur **"Create credentials" > "API key"**
+* Une clé sera générée (ex : `AIzaSyD9e2...`) — **copiez-la**
+
+#### 4. **(Optionnel) Restreindre votre clé**
+
+* Cliquez sur **"Restrict key"**
+
+  * Définissez :
+
+    * une restriction d’IP (si besoin)
+    * ou restreignez à **YouTube Data API v3**
+* Cela améliore la sécurité (évite les abus si la clé est exposée)
+
+
+
+### Utilisation dans `tuber`
+
+```{r}
+library(tuber)
+
+yt_oauth(app_id = "YOUR_CLIENT_ID", app_secret = "YOUR_CLIENT_SECRET")
+# OU
+# Pour clé API uniquement :
+set_api_key("YOUR_API_KEY")
+```
+
+Mais la version avec `yt_oauth()` est recommandée si vous voulez accéder à plus d’éléments (comme les commentaires YouTube).
+
+---
+
+### Alternative pédagogique
+
+Si vous ne voulez pas que chaque étudiant crée une clé :
+
+* Créez **un projet "Atelier WebScraping"** dans Google Cloud
+* Activez l'API et créez une seule clé API
+* Distribuez-la avec parcimonie (et limitez la consommation si besoin)
+
+Souhaitez-vous que je vous génère un fichier `.pdf` ou `.docx` avec ces étapes illustrées pour vos étudiants ?
+
+
+## Exercice 4: Analyser l’évolution de l’intérêt pour les énergies renouvelables en Afrique à l’aide de Google Trends
+
+### Objectifs pédagogiques :
+
+* Apprendre à interroger Google Trends via une API non officielle
+* Visualiser et comparer l’évolution temporelle de mots-clés
+* Comprendre comment interpréter la popularité relative des recherches
+
+---
+
+### Package utilisé : `gtrendsR`
+
+```{r}
+install.packages("gtrendsR")
+library(gtrendsR)
+```
+
+---
+
+### Énoncé de l’exercice :
+
+#### Contexte :
+
+Les gouvernements africains investissent de plus en plus dans les énergies renouvelables. En utilisant les données de **Google Trends**, nous voulons analyser l’évolution de l’intérêt du public pour trois sources d’énergie : **"solaire"**, **"éolienne"**, et **"hydroélectrique"** dans **trois pays francophones** : **Sénégal**, **Côte d’Ivoire**, et **Maroc**.
+
+#### Tâches :
+
+1. **Faire une recherche Google Trends** sur les trois mots-clés dans chacun des pays (un pays à la fois).
+2. Extraire les données de tendance mensuelles des 5 dernières années.
+3. Afficher l’évolution temporelle dans un graphique pour chaque pays.
+4. Comparer le niveau d’intérêt relatif entre les énergies.
+5. Discuter : Quel type d’énergie est le plus recherché dans chaque pays ? Y a-t-il des tendances communes ou divergentes ?
+
+---
+
+### Code de départ (exemple pour le Sénégal) :
+
+```{r}
+library(gtrendsR)
+library(ggplot2)
+library(dplyr)
+
+# Mots-clés à comparer
+keywords <- c("énergie solaire", "énergie éolienne", "énergie hydroélectrique")
+
+# Requête pour le Sénégal (pays code = "SN")
+trends <- gtrends(keyword = keywords,
+                  geo = "SN",
+                 # time = "today 5-y",
+                  gprop = "web")
+
+# Extraire les données d’intérêt dans le temps
+data <- trends$interest_over_time
+
+# Visualisation
+ggplot(data, aes(x = date, y = hits, color = keyword)) +
+  geom_line(size = 1.2) +
+  labs(title = "Tendances de recherche sur les énergies au Sénégal (5 ans)",
+       x = "Date", y = "Intérêt relatif (0-100)") +
+  theme_minimal()
+```
+
+---
+
+### Extension possible :
+
+* Faire une carte comparative entre plusieurs pays (si vous avez le temps)
+* Ajouter des événements politiques ou économiques en annotation
