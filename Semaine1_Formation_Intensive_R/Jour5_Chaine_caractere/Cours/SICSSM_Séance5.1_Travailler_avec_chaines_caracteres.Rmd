@@ -15,14 +15,17 @@ institute: SICSS - Montréal
 
 # Introduction
 
-Les chiffres sont pour l'analyse quantitative, ce que les mots sont pour l'analyse de texte. De ce fait, il est important d'apprendre à manipuler les mots/caractères avant de commencer la modélisation de données textuelles. Dans cette partie cours-labo, je vais vous apprendre les outils dont R dispose pour traiter les caractères. Comme la plupart des outils qui existent pour traiter des textes, R va faire recours aux expressions régulières pour faire correspondre les textes dans les chaînes de caractères. 
+Les chiffres sont pour l'analyse quantitative, ce que les mots sont pour l'analyse de texte. De ce fait, il est important d'apprendre à manipuler les mots/caractères avant de commencer la modélisation de données textuelles. 
+
+Dans cette partie cours-labo, je vais vous apprendre les outils dont R dispose pour traiter les caractères. Comme la plupart des outils qui existent pour traiter des textes, R va faire recours aux expressions régulières pour faire correspondre les textes dans les chaînes de caractères. 
 
 
 # Références
 
+https://r4ds.hadley.nz/strings.html
 https://evoldyn.gitlab.io/evomics-2018/ref-sheets/R_strings.pdf
 https://cheatography.com/davechild/cheat-sheets/regular-expressions/
-https://r4ds.hadley.nz/strings.html
+
 
 
 # Données
@@ -37,6 +40,7 @@ rm(list = ls())
 
 library(tidyverse)
 library(summarytools)
+library(gtsummary)
 #library(xaringanthemer)
 
 restaurants <- read_csv("../Donnees/restaurants.csv",
@@ -81,6 +85,7 @@ restaurants <-
   mutate(ZIP_length = nchar(Zip_Code)) #%>%
 #  count(ZIP_length)
 
+
 freq(restaurants$ZIP_length)
 
 
@@ -92,6 +97,10 @@ freq(restaurants$ZIP_length)
 Nous pouvons utiliser `substr()` pour extraire uniquement les 5 premiers chiffres du code postal.
 
 ```{r substr}
+
+restaurants <- 
+  restaurants %>%
+  mutate(ZIP_5_essai = substr(Zip_Code, 1, 5))
 
 restaurants <- 
   restaurants %>%
@@ -137,6 +146,7 @@ restaurants %>% distinct(mailing_address) %>% head()
 letters[1:5]
 
 paste(1:5, letters[1:5]) # sep met un espace par défaut
+
 paste(1:5, letters[1:5], sep ="")
 paste0(1:5, letters[1:5])
 
@@ -158,12 +168,28 @@ Voici quelques exemples; assurez-vous de comprendre comment chaque ensemble d'ar
 letters[1:5]
 
 paste(letters[1:5], sep = "+")
+
 paste(1:5, letters[1:5], sep = "+")
 
 paste(letters[1:5], collapse = "!")
-paste0(1:5, letters[1:5], collapse = "???")
+
+# Explication
+paste(1:5, letters[1:5], collapse = "???")
+
+1:5 = c(1, 2, 3, 4, 5)
+letters[1:5] = c("a", "b", "c", "d", "e")
+
+paste(1:5, letters[1:5], sep = "allo")
+
+"1alloa", "2allob"
+
+paste(1:5, letters[1:5], sep = "allo", collapse = "+")
+
+"1alloa+2allob+3alloc4+allod+5alloe"
+
 
 paste(1:5, "Z", sep = "*")
+
 paste(1:5, "Z", collapse = "*", sep = "")
 
 paste(1:5, "Z", sep = "*", collapse = " ~ ")
@@ -264,7 +290,7 @@ restaurants <-
          Address = str_to_upper(Address),
          City = str_to_upper(City))
 
-
+head(unique(restaurants$City))
 # Plus simplement avec mutate_at
 
 
@@ -303,7 +329,7 @@ restaurants <-
   restaurants %>% 
   mutate_if(is.character, str_trim) 
 
-head(unique(restaurants$Name), 4)
+head(unique(restaurants$Name), 5)
 
 ```
 
@@ -343,6 +369,11 @@ Page 2 de ceci: https://github.com/rstudio/cheatsheets/blob/main/strings.pdf
 ## `str_detect()`
 
 Pour savoir parmi les restaurants, ceux qui sont des cafés, je dirai qu'un café est tout ce qui a "COFFEE", "ESPRESSO" ou "ROASTER" dans le nom. Le `regex` pour cela est `COFFEE | ESPRESSO | ROASTER` car `|` est un métacaractère qui signifie "OU". Utilisez la fonction `str_detect ()`, qui retourne `TRUE` si elle trouve ce que vous cherchez et ` FALSE` si ce n'est pas le cas (similaire à `grepl ()` dans base R):
+
+
+CO|FEE
+
+`COFFEE | ESPRESSO | ROASTER | CO\\|FEE`
 
 
 ```{r coffee_check}
@@ -389,6 +420,10 @@ exemple_test <- c("2061234567", "(206)1234567",
 exemple_test
 
 str_detect(exemple_test, "206")
+
+str_detect(exemple_test, "^206")
+str_detect(exemple_test, "\\(206\\)")
+
 
 str_detect(exemple_test, "^\\(?206")
 
@@ -453,7 +488,7 @@ direction_exemples <- c("2812 THORNDYKE AVE W", "512 NW 65TH ST",
 
 direction_exemples
 
-str_view(str_extract(direction_exemples, " N "))
+str_view(str_extract(direction_exemples, " N"))
 
 str_extract(direction_exemples, direction_pattern1)
 
@@ -606,7 +641,7 @@ head(unique(restaurants$Violation_Description))
 
 head(str_split_fixed(restaurants$Violation_Description, " - ", n = 2))
 
-str_
+str_spl
 ```
 
 
