@@ -125,9 +125,9 @@ sapply(repos, function(x) x$name)
 # Remarques pédagogiques
 
 - Encourager les étudiants à explorer la pagination (`page` dans l’API GitHub)
-- Créer une clé API Google à distribuer pour `tuber` : AIzaSyDwTBxdr-6hTGnMVdOEtQiinmm4MQlALWs
-    - Client ID: 965834895372-m7bj0khe0h08u7lkn18i4239hp8v7m7f.apps.googleusercontent.com
-    - Client secret: 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
+- Créer une clé API Google à distribuer pour `tuber` : 
+    - Client ID: 
+    - Client secret: 
 - Utiliser `textdata::get_sentiments()` pour l’analyse des sentiments Reddit
 
 # Voici les étapes à suivre pour obtenir une **clé API Google Cloud** (nécessaire pour utiliser l’API YouTube avec le package `tuber`) :
