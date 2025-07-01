@@ -199,7 +199,7 @@ fl = wp_trend(                        # func wp_trend() builds a data object - m
 
 # Exercice 4
 
-Faites une analyse quantitative de texte sur les données que vous avez collecté hier.
+Faites une analyse quantitative de texte sur les données que vous avez collectées hier.
 
 
 
