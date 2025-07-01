@@ -2,7 +2,7 @@
 title: 'Séance 2.2: Analyse données digitales'
 subtitle: 'Les principales méthodes'
 author: "Visseho Adjiwanou, PhD."
-institute: "SICSS - Montréal"
+institute: "SICSS - ISSP-UQAM"
 #date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
   beamer_presentation:
