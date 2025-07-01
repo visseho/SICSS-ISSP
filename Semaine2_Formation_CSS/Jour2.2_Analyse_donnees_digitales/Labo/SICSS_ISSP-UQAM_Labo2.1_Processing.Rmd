@@ -57,6 +57,7 @@ rm(list = ls())
 
 # Installer les différents packages
 #install.packages("tm")
+#install.packages("maps")
 
 # Charger les packages
 
@@ -129,13 +130,13 @@ trump_corpus  <- tm_map(trump_corpus, content_transformer(stemDocument), languag
 
 trump_DTM <- DocumentTermMatrix(trump_corpus, control = list(wordLengths = c(5, Inf)))
 
-inspect(trump_DTM[1:6,1:10])
+inspect(trump_DTM[12:16,21:30])
 
 ?DocumentTermMatrix()
 
 
 trump_DTM_matrix <- as.matrix(trump_DTM)
-trump_DTM_matrix[1:5,1:8]
+trump_DTM_matrix[10:15,1:8]
 
 ```
 
@@ -297,8 +298,11 @@ ggplot(top_20) +
   theme(axis.text = element_text(angle = 90, hjust = 1)) +
   ylab("Number of time a word appears in a tweet") +
   xlab("word") +
-  guides(fill = FALSE) 
+  guides(fill = FALSE) #+
+  #coord_flip()
 
+
+# 20 mots les moins importants
 
 ```
 

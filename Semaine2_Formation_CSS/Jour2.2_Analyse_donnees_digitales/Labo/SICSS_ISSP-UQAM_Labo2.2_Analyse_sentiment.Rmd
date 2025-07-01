@@ -181,7 +181,7 @@ top_tfidf
 
 economic_dictionary <- "economy|unemployment|trade|tariffs|employment|tax"
 
-economic_dictionary1 <- "Togo|Cameroon"
+economic_dictionary1 <- "Togo|Cameroon|Burkina"
 
 
 ```
@@ -189,6 +189,8 @@ economic_dictionary1 <- "Togo|Cameroon"
 ## Sélectionnons les tweets qui contiennent les mots relatifs à l'économie
 
 ```{r}
+
+
 
 economic_tweets <- 
   trumptweets %>% 
@@ -261,7 +263,7 @@ ggplot(trump_tweet_sentiment1) +
   theme_minimal() +
   labs(x = "Date", y = "Nombre de publications", title = "Evolution des sentiments") +
 #  facet_wrap(~sentiment)+
-  theme_bw()
+  theme_bw() 
 
 ```
 

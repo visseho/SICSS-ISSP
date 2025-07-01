@@ -81,6 +81,13 @@ Voici les premiers codes qui vous permettent de télécharger ces données. Pour
 
 ```{r}
 
+# if you have not installed the `devtools` package
+install.packages("devtools") 
+library("devtools")
+install_github("kosukeimai/qss-package", build_vignettes = TRUE)
+
+#install.packages("qss")
+
 rm(list = ls())
 library(tidyverse)
 library(lubridate)

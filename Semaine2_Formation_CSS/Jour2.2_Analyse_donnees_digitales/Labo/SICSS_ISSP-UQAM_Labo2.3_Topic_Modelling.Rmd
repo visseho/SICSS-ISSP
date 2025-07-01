@@ -75,7 +75,9 @@ Le but est de définir un certain nombre de sujets et essayer de voir celui qui 
 
 ```{r}
 
-trump_tweet_lda <- LDA(trump_tweets_dtm, k = 3, control = list(seed = 123))
+k <- c(2:5)
+
+trump_tweet_lda <- LDA(trump_tweets_dtm, k = k, control = list(seed = 123))
 
 trump_tweet_lda
 
