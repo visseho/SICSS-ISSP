@@ -42,6 +42,7 @@ bf <- read_dta("../Donnee/BFKR81FL.DTA")
 KR <- c("BFKR81FL","BJKR71FL","CIKR81FL","GMKR81FL","GNKR71FL","LBKR7AFL","MLKR7AFL","MRKR71FL","NGKR7BFL","NIKR61FL","SLKR7AFL","TGKR61FL")
 
 
+
 ```
 
 
@@ -139,6 +140,7 @@ education de la femme (v106):
 
 freq(data$v106)
 data <- data %>% mutate(educ = factor(v106, levels = c(0,1,2,3), labels = c("Sans instruction","Primaire","Secondaire","Supérieur")))
+
 freq(data$educ)
 
 ```

@@ -35,6 +35,8 @@ load("dhs_child_west_africa.rda")
 
 ```{r}
 
+freq(data$m19)
+
 data <- data %>% 
   mutate(pop_cible = if_else(is.na(m19), "pas de questions", "questions posées"))
 
@@ -123,8 +125,14 @@ ggplot(data) +
   geom_boxplot(aes(y = m19))+
   theme_minimal()
 
+
 ggplot(data) +
-  geom_point(aes(x = v012, y = m19), color="red")
+  geom_point(aes(x = v012, y = m19), color="red") 
+
+ggplot(data) +
+  geom_jitter(aes(x = v012, y = m19), color="red", alpha = 0.2, size = .2) 
+
+  geom_jitter()
 
 ```
 
@@ -263,6 +271,9 @@ Lors de la validation d'un modèle de prédiction, le MSE est couramment utilis�
 **2. Évaluation de la Performance** : Le MSE fournit une seule valeur résumée qui peut être utilisée pour évaluer la performance globale du modèle sur l'ensemble des données de test.
 
 **3. Optimisation** : Lors de l'ajustement des hyperparamètres de modèles (comme en utilisant des techniques de validation croisée), le MSE peut être utilisé comme critère d'optimisation pour trouver les meilleurs paramètres qui minimisent l'erreur de prédiction.
+
+
+**Mean Absolute Error (MAE)**
 
 ```{r}
 
