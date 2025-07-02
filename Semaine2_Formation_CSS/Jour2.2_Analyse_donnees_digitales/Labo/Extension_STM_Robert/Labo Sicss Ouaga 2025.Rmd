@@ -1,0 +1,1318 @@
+---
+title: "Analyse quantitative de texte"
+author:
+- Robert Djogbenou:
+    email: yao.robert.djogbenou@umontreal.ca
+    institute: Demo
+    correspondence: yes
+  institute: Demo
+institute:
+- Demo: Département de Démographie, Université de Montréal
+output:
+  word_document:
+    reference_docx: word-styles-reference.docx
+    pandoc_args:
+    - --csl=Extras/apa7-fr-couture.csl
+    - --citation-abbreviations=Extras/abbreviations.json
+    - --filter=pandoc-crossref
+    - --lua-filter=Extras/scholarly-metadata.lua
+    - --lua-filter=Extras/author-info-blocks.lua
+  fig_caption: yes
+  papersize: a4
+  html_document:
+    df_print: paged
+  pdf_document: default
+chunk_output_type: inline
+editor_options: null
+mainfont: Arial
+fontsize: 12pt
+geometry: left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm
+linestretch: 1.15
+secnumdepth: 1
+bibliography:
+- Ma_bibliotheque.bib
+- Women_representation_in_media.bib
+link-citations: yes
+linkcolor: blue
+csl: apa.csl
+keep-latex: yes
+---
+
+## Plan du labo
+
+1. Topic modeling (STM)
+2. Sentiment analysis
+3. Combinaison de STM, sentiment analysis avec modeles longitudinaux
+
+## Introduction
+
+Avec le nombre croissant de données textuelles et archives numériques (données non structurées), il devient de plus en plus difficile 
+d’extraire des informations pertinentes et nécessaires dans ces données. Ces données donnent un aperçu sans précédent des questions 
+fondamentales en sciences sociales. Pendant ce temps, plusieurs techniques statistiques ont été développées pour explorer et récupérer 
+les informations pertinentes et nécessaires dans les données textuelles. Dans ce labo, nous donnons un bref aperçu des techniques de la 
+modélisation des thèmes et de l’analyse de sentiment.
+
+La modélisation des thèmes est une technique d’apprentissage automatique non supervisée utilisée pour découvrir des thèmes latents cachés 
+contenus dans un texte et des relations qui n’ont pas été analysés et codés manuellement au préalable. Elle diffère de l’analyse qualitative 
+du contenu ou de l’analyse du discours, en ce sens qu’elle tente de réduire la complexité et de rendre les données aptes aux inférences 
+statistiques. L’idée derrière la modélisation des thèmes est que, des algorithmes identifient des mots similaires dans des documents d’un 
+corpus donné et les regroupent en thèmes, permettant ainsi d’identifier le contenu thématique de ce corpus.
+
+Ce processus est similaire à l’analyse factorielle. Il existe généralement trois processus pour les modèles thématiques. 
+Le premier processus est similaire aux facteurs dans l’analyse factorielle et consiste à l’extraction de l’ensemble des thèmes apparus dans 
+les documents. Le deuxième processus, similaire aux charges factorielles, consiste à déterminer la probabilité d’apparition des mots 
+dans chaque thème. Le troisième processus, à peu près similaire aux scores factoriels, est la proportion de chaque document qui 
+peut être attribuée à chaque thème. 
+
+Un modèle thématique largement utilisé est le Latent Dirichlet Allocation (LDA), proposé par Blei et al. (2003). 
+Nous utilisons une extension récente du LDA appelée Structural Topic Modeling (STM) (Roberts et al., 2014, 2019). 
+La particularité du STM est sa capacité à intégrer des métadonnées des documents (par exemple, l’année, la source, 
+ou toute autre variable catégorielle ou numérique) afin d’améliorer l’estimation de la prévalence et du contenu 
+des sujets. Il a été démontré que l’ajout de covariables améliore 
+significativement la qualité des sujets, et que l’inclusion de la date 
+est particulièrement utile pour analyser les évolutions temporelles et les changements de discours.
+
+En résumé, STM diffère principalement de LDA sur trois points : premièrement, les thèmes peuvent être corrélés ; deuxièmement, 
+chaque document a sa propre distribution de thèmes, définie par les covariables plutôt que de partager une moyenne globale ; 
+troisièmement, l’utilisation des mots dans un thème peut varier selon les variables indépendantes.
+
+
+# Définir le répertoire de travail (working directory)
+
+```{r}
+# Adjust your working directory here
+knitr::opts_knit$set(root.dir = '')
+```
+
+# Nettoyage de l'environnement de travail
+
+```{r}
+rm(list = ls())
+```
+
+############ Voici la liste des packages utilisés pour cet article ############
+
+```{r library, include=FALSE}
+ 
+# Liste des packages avec explication du rôle
+
+packages <- c(
+  "tidyverse",     # Ensemble de packages pour manipulation et visualisation (inclut dplyr, ggplot2, etc.)
+  "data.table",    # Lecture et manipulation rapide de données
+  "readxl",        # Lecture de fichiers Excel (.xlsx)
+  "writexl",       # Écriture de fichiers Excel (.xlsx)
+  "quanteda",      # Analyse quantitative de texte (NLP)
+  "quanteda.textstats",  # Fonctions avancées de statistiques textuelles (ex : détection de collocations, calculs statistiques sur les tokens)
+  "spacyr",        # Interface R pour spaCy (NLP en Python) : tokenisation, entités nommées, dépendances, etc.
+  "tidytext",      # Traitement de texte au format tidy (tokenisation, tf-idf, etc.)
+  "stm",           # Modélisation thématique structurée (Structural Topic Models)
+  "lubridate",     # Manipulation de dates
+  "parsedate",     # Parsing de formats de dates variés
+  "igraph",        # Analyse et visualisation de réseaux
+  "wordcloud2",    # Nuages de mots interactifs en HTML
+  "wordcloud",     # Nuages de mots simples (statique)
+  "summarytools",  # Statistiques descriptives jolies et complètes
+  "textstem",      # Lemmatisation et traitement de texte
+  "future",        # Traitement parallèle (utilisé avec `stm`)
+  "RColorBrewer",  # Palettes de couleurs
+  "scales",        # Mise à l’échelle pour les visualisations (ex: format pour les axes)
+  "ggthemes",      # Thèmes supplémentaires pour ggplot2
+  "furrr",         # Version parallèle de purrr (map() + future)
+  "prettydoc",     # Thèmes esthétiques pour documents RMarkdown
+  "snakecase",     # Conversion de noms (e.g., camelCase → snake_case)
+  "hrbrthemes",    # Thèmes professionnels pour ggplot2
+  "extrafont",     # Importation et utilisation de polices supplémentaires
+  "car",           # Outils pour analyse de régression (tests, ANOVA, etc.)
+  "ff",            # Manipulation efficace de grands jeux de données (hors RAM)
+  "htmlwidgets",   # Export HTML interactif (utile pour `wordcloud2`)
+  "webshot",       # Capture de widgets HTML en PNG ou PDF
+  "ggrepel",       # Étiquettes intelligentes dans ggplot2 (évite chevauchement)
+  "cowplot",       # Combinaison de plusieurs graphes ggplot2
+  "stargazer",     # Tableaux de modèles (régressions) jolis en LaTeX, HTML, texte
+  "labelled",      # Gestion des étiquettes de variables (utile pour données d’enquêtes)
+  "rstatix",       # Statistiques descriptives et inférentielles simples
+  "ggpubr",        # Statistiques et visualisations publication-ready
+  "GGally",        # Extensions ggplot2 (ex: ggpairs pour matrices de corrélation)
+  "Epi",           # Statistiques épidémiologiques (IC, RR, OR, etc.)
+  "lme4",          # Modèles mixtes (effets fixes et aléatoires)
+  "lmerTest",      # P-values pour lme4
+  "emmeans",       # Moyennes marginales estimées (comparaisons post-hoc)
+  "multcomp",      # Intervalles de confiance pour combinaisons linéaires
+  "geepack",       # Modèles à équations d’estimation généralisées (GEE)
+  "ggeffects"      # Effets marginaux et prédictions ajustées (ggplot friendly)
+)
+
+# Charger tous les packages avec une boucle
+
+invisible(lapply(packages, library, character.only = TRUE))
+
+```
+
+
+# Chargement des données
+
+```{r message=FALSE, warning=FALSE}
+
+df <- fread("df_ontario.csv")
+```
+
+
+################# Analyse de texte ##################
+
+https://content-analysis-with-r.com/4-dictionaries.html
+
+
+################# PARTIE I: ANALYSE DE TEXTE : STM ##########################################
+
+
+```{r}
+# Installer spaCy et ses dépendances Python (à faire une seule fois si nécessaire)
+# spacy_install()  # Décommentez cette ligne si spaCy n'est pas encore installé
+
+# Initialiser spaCy et charger le modèle linguistique léger en anglais
+
+spacy_initialize(model = "en_core_web_sm")  # Ce modèle est rapide, mais moins précis que les modèles transformers
+
+```
+
+
+```{r}
+# Analyse linguistique du texte avec spaCy via spacyr
+
+spacy <- spacy_parse(df$text, 
+                             lemma = TRUE,   # Retourne les lemmes (formes de base des mots)
+                             pos = TRUE      # Inclut les parties du discours (noms, verbes, etc.)
+                             # by default, entities = FALSE
+)
+
+```
+
+
+```{r}
+saveRDS(spacy, 'spacy.rds')
+```
+
+
+```{r}
+#spacy <- read_rds("spacy.rds")
+
+```
+
+
+# Adds stopwords
+
+```{r message=FALSE, warning=FALSE, results = 'hide'}
+
+library(readxl)
+library(dplyr)
+
+# Lire le fichier Excel
+mystopwords <- read_excel("stopwords_final.xls")
+
+# Supprimer les doublons et les NA
+mystopwords <- mystopwords %>%
+  distinct(words, .keep_all = TRUE) %>%
+  drop_na()
+
+# Nettoyer les espaces en trop
+mystopwords <- trimws(as.character(mystopwords$words))
+
+```
+
+
+```{r}
+# Transforme les résultats de spacy_parse en tokens avec lemmatisation
+newspapers_tokens <- as.tokens(spacy, use_lemma = TRUE) %>%
+
+  # Nettoyage de base : suppression de ponctuations, chiffres, symboles, séparateurs, URLs
+  quanteda::tokens(remove_punct = TRUE, 
+                   remove_numbers = TRUE, 
+                   remove_symbols = TRUE,
+                   remove_separators = TRUE,
+                   remove_url = TRUE,
+                   split_hyphens = TRUE,
+                   include_docvars = TRUE) %>%
+
+  # Mise en minuscules
+  tokens_tolower() %>%
+
+  # Suppression des stopwords personnalisés
+  quanteda::tokens_remove(pattern = phrase(mystopwords), valuetype = 'fixed') %>%
+
+  # Suppression des stopwords standards en anglais (avec remplissage si besoin)
+  quanteda::tokens_remove(stopwords("en"), padding = TRUE)
+
+```
+
+## Nettoyer davantage les tokens après le prétraitement initial avec quanteda 
+
+```{r}
+# 🔍 Nettoyage final des tokens : suppression des ponctuations et mots très courts
+newspapers_tokens <- tokens_select(
+  newspapers_tokens,
+  pattern = c("[[:punct:]]", "^.{1,2}$"),  # mots de 1 ou 2 lettres, ponctuations
+  selection = "remove",
+  valuetype = "regex",   # on utilise des expressions régulières
+  padding = TRUE,        # conserve la structure si nécessaire
+  verbose = TRUE         # affiche les logs
+)
+
+```
+
+```{r}
+# Étape 1 : Identifier les collocations (groupes de mots fréquents, ex : "prime minister")
+coll <- textstat_collocations(newspapers_tokens, min_count = 50)
+
+# Étape 2 : Fusionner les collocations dans les tokens (optionnel)
+newspapers_tokens <- tokens_compound(newspapers_tokens, coll, join = FALSE)
+
+# Étape 3 : Remplacer des expressions spécifiques par un mot unifié
+# Exemple : transformer "per cent" → "percent"
+bigrams <- c("per cent")
+unigrams <- c("percent")
+
+newspapers_tokens <- tokens_replace(
+  newspapers_tokens,
+  pattern = bigrams,
+  replacement = unigrams
+)
+```
+
+
+# Création de **document-feature matrix (DFM)** 
+
+
+```{r}
+# Création d'une matrice document-terme (DFM) à partir des tokens nettoyés
+# Filtrage des termes dans la DFM : 
+# - suppression des termes très rares (apparaissant dans moins de 7,5% des documents)
+# - suppression des termes très fréquents (présents dans plus de 80% des documents)
+# Cela permet de garder un vocabulaire pertinent et d'éviter le bruit causé par termes trop spécifiques ou trop généraux.
+# Supprime tous les tokens dont la longueur est inférieure à 3 caractères
+
+
+dfm_newspapers <- newspapers_tokens %>% 
+  dfm(tolower = TRUE) %>%  # Transformer les tokens en document-feature matrix
+  dfm_remove(min_nchar = 3) %>%  # Supprimer les tokens < 3 caractères
+  dfm_trim(min_termfreq = 0.075, termfreq_type = "quantile",
+           max_docfreq = 0.80, docfreq_type = "prop") %>%  # Filtrer termes trop rares ou trop fréquents
+  quanteda::dfm_subset(quanteda::ntoken(.) > 0)  # Supprimer documents vides (sans tokens)
+
+```
+
+
+```{r}
+cloud_dfm <- colSums(dfm_newspapers)
+
+sum(ntoken(dfm_newspapers))
+
+```
+
+```{r}
+# Affiche les 10 premières observations (documents) et les 10 premières caractéristiques (termes) 
+# de la matrice document-terme (DFM) triée par fréquence décroissante à la fois pour les documents et les termes.
+head(dfm_sort(dfm_newspapers, 
+              decreasing = TRUE, margin = "both"), n = 10)
+
+```
+
+# Wordcloud visualization
+
+
+```{r fig.height=5, fig.width=7}
+
+# Visualisation par nuage de mots (wordcloud)
+# Le wordcloud montre les termes les plus fréquents dans tous les articles,
+# où la taille des mots reflète leur fréquence d'apparition.
+
+# webshot::install_phantomjs(force = TRUE) # à décommenter si nécessaire pour sauvegarder en image
+
+set.seed(1234) # pour garantir la reproductibilité du nuage
+
+# Création du nuage de mots avec wordcloud2
+# - data.frame : données avec termes et leurs fréquences
+# - size : taille globale du nuage
+# - ellipticity : forme elliptique du nuage
+# - shuffle : ordre des mots non mélangé pour cohérence visuelle
+# - shape : forme générale du nuage (ici cercle)
+# - color : couleur aléatoire sombre
+# + WCtheme(1) : applique un thème graphique esthétique
+
+my_graph <- wordcloud2(data.frame(names(cloud_dfm), cloud_dfm),
+           size = 1.6, ellipticity = 1, shuffle = FALSE, shape = 'circle',  color='random-dark') + WCtheme(1)
+
+# Affichage du nuage de mots
+my_graph
+
+
+```
+
+# Modèles de sujets structurels (Structural Topic Modeling, STM) - apprentissage non supervisé
+
+STM est une extension des modèles LDA classiques, qui intègre des métadonnées (informations sur chaque document) 
+dans la modélisation des sujets.
+
+Cette approche permet notamment :
+ - d’inclure des covariables dans les priorités du modèle
+ - d’utiliser une méthode d'initialisation alternative ("Spectral")
+
+
+```{r}
+# https://quanteda.io/articles/pkgdown/quickstart.html
+
+
+# Pour appliquer STM avec les données préparées dans quanteda,
+# il faut d'abord convertir la matrice document-terme (DFM) 
+# en format compatible STM.
+
+# La fonction quanteda::convert permet de convertir la DFM en objet STM, 
+# en joignant les variables documentaires (docvars) extraites de df.
+
+out <- quanteda::convert(dfm_newspapers, to = "stm",
+                         docvars = df
+                         )
+
+```
+
+
+```{r}
+saveRDS(out, file = "out.rds")
+
+```
+
+
+```{r}
+#out <- read_rds("out.rds") 
+```
+
+
+# SÉLECTION DU MODÈLE STM (Structural Topic Model)
+
+Objectif : déterminer le nombre optimal de topics (K) pour le modèle STM.
+On teste plusieurs valeurs de K, allant de 5 à 50, 
+La méthode d'initialisation "Spectral" est utilisée car elle donne des résultats optimaux.
+Le modèle prend en compte une covariable de prévalence : ici, l'année ("year").
+Le nombre maximal d'itérations EM (expectation-maximization) est fixé à 50 pour chaque modèle.
+
+# La parallélisation avec future.apply (ici 5 workers) accélère l'entraînement sur plusieurs cœurs CPU.
+
+## Attention, le code prend plus de temps pour converger
+
+```{r}
+
+library(future.apply)  # Permet d'exécuter des boucles et fonctions en parallèle pour accélérer le calcul, 
+# notamment utile pour entraîner plusieurs modèles STM simultanément.
+
+# Activer la parallélisation avec 5 workers
+plan(multisession, workers = 5)
+
+# Afficher la configuration de planification actuelle (facultatif)
+plan()
+
+# Augmenter la limite mémoire pour la parallélisation (ici 8 Go)
+options(future.globals.maxSize = 8000 * 1024^3)
+
+# Liste des valeurs de K à tester
+Ks <- c(5:25)
+
+# Exécuter les modèles STM pour chaque K
+many_models <- tibble(K = Ks) %>% 
+  mutate(model = map(K, ~ stm(
+    documents = out$documents,     # documents préparés pour STM
+    vocab = out$vocab,             # vocabulaire STM
+    data = out$meta,               # métadonnées, incluant la variable "year"
+    K = .,                        # nombre de topics pour ce modèle
+    prevalence = ~ year,           # covariable de prévalence : l'année
+    init.type = "Spectral",        # méthode d'initialisation
+    seed = TRUE,                   # seed pour reproductibilité
+    max.em.its = 50,               # nombre max d'itérations EM
+    verbose = TRUE                 # afficher les logs d'entraînement
+  )))
+
+```
+
+
+```{r}
+#SAVING RESULTS
+
+saveRDS(many_models, file = "many_model.rds")
+
+```
+
+
+```{r}
+#many_models <- read_rds("many_model.rds")
+```
+
+
+```{r}
+heldout <- make.heldout(dfm_newspapers)
+# Crée un jeu de données "held-out" à partir de la matrice document-terme (dfm),
+# utilisé pour évaluer la performance prédictive du modèle STM sur des données non vues pendant l'entraînement.
+
+```
+
+
+```{r}
+saveRDS(heldout , file = "heldout.rds")
+```
+
+## Évaluation des modeles
+
+Ce code permet d'évaluer plusieurs modèles STM avec différents nombres de topics (K) en utilisant 
+plusieurs métriques diagnostics (exclusivité, cohérence sémantique, held-out likelihood, résidus) 
+et facilite ainsi la sélection du meilleur nombre de topics.
+
+```{r}
+
+k_result <- many_models %>%
+  mutate(
+    # Calcul de l'exclusivité des mots pour chaque modèle
+    exclusivity = map(model, exclusivity),
+    
+    # Calcul de la cohérence sémantique des topics pour chaque modèle, avec la DFM utilisée
+    semantic_coherence = map(model, semanticCoherence, dfm_newspapers),
+    
+    # Évaluation de la performance prédictive sur les données "held-out"
+    eval_heldout = map(model, eval.heldout, heldout$missing),
+    
+    # Analyse des résidus pour chaque modèle (diagnostic de la qualité du fit)
+    residual = map(model, checkResiduals, dfm_newspapers),
+    
+    # Extraction de la borne supérieure de la fonction objectif pour chaque modèle
+    bound =  map_dbl(model, function(x) max(x$convergence$bound)),
+    
+    # Calcul du logarithme de la factorielle du nombre de topics (dimension) pour chaque modèle
+    lfact = map_dbl(model, function(x) lfactorial(x$settings$dim$K)),
+    
+    # Calcul d'une borne ajustée qui combine bound et lfact (potentiellement pour comparaison)
+    lbound = bound + lfact,
+    
+    # Nombre d’itérations jusqu’à convergence pour chaque modèle
+    iterations = map_dbl(model, function(x) length(x$convergence$bound))
+  )
+
+# Affiche les résultats d'évaluation pour tous les modèles testés
+k_result
+
+```
+
+
+```{r}
+saveRDS(k_result, 'k_result.rds')
+
+```
+
+
+```{r}
+#k_result <- read_rds('k_result.rds')
+
+#k_result
+```
+
+# Visualiser ces quatre métriques clés par nombre de topics (K)
+
+
+Semantic coherence : mesure à quel point les mots d’un même topic apparaissent dans les mêmes documents.
+
+Exclusivity : mesure à quel point les mots d’un topic sont exclusifs à ce topic.
+
+L’objectif est d’identifier les modèles situés dans le coin supérieur droit : 
+ils combinent à la fois une bonne cohérence sémantique et une bonne exclusivité → modèles de qualité.
+
+
+
+```{r fig.height=5, fig.width=7}
+
+results_plot <- k_result %>%
+  transmute(
+    K,  # Nombre de topics
+    
+    # Moyenne de l'exclusivité des mots (plus élevé = topics plus distincts)
+    Exclusivity = map_dbl(exclusivity, mean),
+    
+    # Moyenne de la cohérence sémantique (plus élevé = topics plus cohérents sémantiquement)
+    `Semantic coherence` = map_dbl(semantic_coherence, mean),
+    
+    # Dispersion des résidus (diagnostic sur la qualité du modèle, plus bas est mieux)
+    `Dispersion of residuals` = map_dbl(residual, "dispersion"),
+    
+    # Log-vraisemblance sur données "held-out" (plus haut = meilleure capacité prédictive)
+    `Held-out likelihood` = map_dbl(eval_heldout, "expected.heldout")
+  )
+
+```
+
+
+```{r fig.height=8, fig.width=17}
+
+results_plot_graph <- results_plot %>%
+  # Transformation du tableau au format long pour ggplot
+  gather(Metric, Value, -K) %>%
+  
+  # Création du graphique avec ggplot2
+  ggplot(aes(K, Value, color = Metric)) +
+  
+  # Ligne par métrique
+  geom_line(linewidth = 1, alpha = 0.7, show.legend = FALSE) + 
+  
+  # Points pour chaque valeur de K
+  geom_point(size = 1) +
+  
+  # Un graphique séparé (facette) par métrique, avec échelle Y propre
+  facet_wrap(~Metric, scales = "free_y") +
+  
+  # Titres des axes
+  labs(x = "Topic Number", y = NULL) +
+  
+  # Thème blanc épuré
+  theme_bw() +
+  
+  # Suppression des lignes de grille
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.minor.x = element_blank()
+  ) +
+  
+  # Mise en forme de la légende et des textes
+  theme(
+    legend.direction = "horizontal",
+    legend.position = "none",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 14, color = "black"),
+    axis.title.x = element_text(size = 14, color = "black"),
+    strip.text.x = element_text(size = 14, color = "black"),
+    axis.text.y = element_text(size = 14, color = "black"),
+    axis.title.y = element_text(size = 14, color = "black"),
+    strip.text.y = element_text(size = 14, color = "black")
+  )
+
+# Affichage du graphique
+
+results_plot_graph
+
+```
+
+# Visualiser les performances de chaque modèle STM en fonction de K à partir de deux critères qualitatifs :
+
+
+```{r fig.height=8, fig.width=15}
+
+# Préparation des données
+results_dots_data <- results_plot %>%
+  dplyr::select(K, `Semantic coherence`, Exclusivity) %>%
+  unnest(cols = c()) %>%  # Nécessaire uniquement si ce sont des list-cols
+  mutate(topic = paste0("K", K))  # Création de labels du type K5, K10, etc.
+
+# Création du graphique
+results_dots <- ggplot(results_dots_data, aes(x = `Semantic coherence`, y = Exclusivity, label = topic)) +
+  geom_point(alpha = 0.5, color = "red") +
+  geom_text_repel(min.segment.length = 0, seed = 42, box.padding = 0.30, size = 5) +
+  labs(x = "Semantic coherence", y = "Exclusivity") +
+  theme_bw() + 
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.x = element_text(size = 14, color = "black"),
+    axis.title.x = element_text(size = 14, color = "black"),
+    axis.text.y = element_text(size = 14, color = "black"),
+    axis.title.y = element_text(size = 14, color = "black"),
+    strip.text.x = element_text(size = 14, color = "black"),
+    strip.text.y = element_text(size = 14, color = "black")
+  )
+
+results_dots
+
+```
+
+## MODELING
+
+# Specification for K topics using stm function 
+
+# According to the previous graphs, the number of topics is 20, maximal number of iteration is 70, used method is spectral as according to the guidelines it provides "optimal results". Gamma prior is L1 as with such a small number of iterations the model would have otherwise not converged. Can be removed if the n. of iterations is increased to allow model to converge. We identify the covariate we are interested in under prevalence.
+
+
+```{r}
+topic_model <- k_result %>% 
+  filter(K == 14) %>% 
+  pull(model) %>% 
+  .[[1]]
+
+topic_model
+```
+
+
+```{r}
+#SAVING RESULTS
+
+saveRDS(topic_model, file = "topic_model.rds")
+
+```
+
+
+```{r}
+topic_model <- read_rds('topic_model.rds') # loads topic_model
+```
+
+
+# Representation des topics (24 topics are good)
+
+
+```{r fig.height=8.5, fig.width=13.5, warning=FALSE}
+
+topic <- plot(topic_model, 
+              n=5, 
+              type = "summary", 
+              xlim = c(0,.25), 
+              labeltype = c("prob"),
+              
+              main="", 
+              text.cex=1.1, 
+              xlab="", 
+              cex.axis = 1.5, 
+              col = alpha(1), 
+              pch=26)
+mtext("Average Topic Proportions", 
+      side=1, 
+      line=3, 
+      cex=1.5) #adds custom Y-axis label
+
+topic
+  
+```
+
+
+## Words clouds
+
+```{r fig.height=10, fig.width=12, warning= FALSE, message=FALSE}
+
+set.seed(1) # for reproducibility 
+
+plot.new()
+
+A= c(1:14)
+
+par(mfrow=c(5,4), mar=c(0, 0, 2, 0.5))
+for (i in A)
+{
+stm::cloud(topic_model, 
+           topic = i, 
+           scale = c(8,.7),
+           rot.per=0,
+           fixed.asp = FALSE, 
+           min.freq=10,
+           random.order=FALSE,
+           random.color=TRUE,  
+           colors=brewer.pal(max(8,
+                                 ncol(topic_model)),
+                             "Dark2"))
+title(main=topic[i], 
+      font.main=4, 
+      col.main="black", 
+      cex.main=1.7) 
+}
+
+```
+
+# Tidy approche
+
+```{r}
+
+td_beta <- tidy(topic_model)# Extraire la distribution des mots (beta) pour chaque topic dans un format tidy (long)
+
+#td_beta
+```
+
+# # Extraire la distribution des topics (gamma) pour chaque document
+# Chaque ligne donne la probabilité qu’un document soit associé à un topic donné
+
+Note : matrix = "gamma" permet d’obtenir les proportions thématiques par document — c’est la matrice fondamentale 
+pour visualiser la répartition des themes dans le corpus.
+
+```{r include=FALSE}
+
+td_gamma <- tidy(topic_model, matrix = "gamma",
+                 document_names = rownames(out))
+
+td_gamma
+
+```
+
+## Extraire les 5 termes les plus représentatifs (avec les plus fortes probabilités β) pour chaque topic
+# Puis, calculer la moyenne des probabilités gamma pour chaque topic (importance moyenne dans le corpus)
+# Enfin, fusionner les deux pour afficher les topics les plus présents accompagnés de leurs termes caractéristiques
+
+
+```{r fig.height=1.5, fig.width=3, warning=FALSE, message=FALSE}
+
+library(ggthemes)
+
+
+top_terms <- td_beta %>%
+  arrange(beta) %>%
+  group_by(topic) %>%
+  top_n(5, beta) %>%
+  arrange(-beta) %>%
+  dplyr::select(topic, term) %>%
+  dplyr::summarise(terms = list(term)) %>%
+  mutate(terms = map(terms, paste, collapse = ", ")) %>% 
+  unnest(cols = c(terms))
+
+gamma_terms <- td_gamma %>%
+  group_by(topic) %>%
+  dplyr::summarise(gamma = mean(gamma)) %>%
+  arrange(desc(gamma)) %>%
+  left_join(top_terms, by = "topic") %>%
+  mutate(topic = paste0("Topic ", topic),
+         topics = reorder(topic, gamma))
+
+```
+
+# Plot topic graph
+
+
+```{r fig.height=8, fig.width=16}
+library(scales)  # pour percent_format()
+
+library(forcats)
+
+topic_plot <- gamma_terms %>%
+  top_n(20, gamma) %>%
+  mutate(topic = fct_reorder(topic, gamma, .desc = FALSE)) %>%
+  ggplot(aes(topic, gamma, label = terms, fill = topic)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(hjust = 0, nudge_y = 0.0025, size = 5, color = "black",
+            family = "Arial") +
+  coord_flip() +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0, 0.18),
+                     labels = scales::percent_format()) +
+  ggthemes::theme_tufte(base_family = "Arial", ticks = FALSE, base_size = 13) +
+  theme(
+    plot.title = element_text(size = 17, family = "Arial"),
+    axis.text.x = element_text(size = 13, color = "black"),  # taille des labels x
+    axis.text.y = element_text(size = 13, color = "black")   # taille des labels y
+  ) +
+  labs(x = NULL, y = "Expected Topic Proportions")
+
+topic_plot
+
+```
+
+```{r}
+# POST-ESTIMATION DIAGNOTICS
+
+# Displaying words associated with topics or documents highly associated with particular topics
+
+# Find prototype documents using function findThoughts()
+
+findThoughts(topic_model, texts = out$meta$Résumé, topics = c(3),  n=1)$docs[[1]] 
+
+```
+
+```{r echo=FALSE}
+out$meta <- as.data.frame(out$meta)
+
+prep_interaction_year <- estimateEffect(
+  1:14 ~ s(year), 
+  topic_model, 
+  meta = out$meta, 
+  uncertainty = "Global", 
+  prior = 1e-5
+)
+
+
+```
+
+
+# Evolution des topics dans le temps 
+
+
+```{r}
+
+library(stminsights)
+
+effects_year <- get_effects(estimates = prep_interaction_year,
+                      variable = 'year',
+                      type = 'continuous')
+
+```
+
+
+```{r fig.height=12, fig.width=19}
+
+effects_year_graph <- effects_year %>%
+  mutate(topic = paste0("Topic ", topic))%>%
+
+ ggplot(aes(x = value, y = proportion, color = topic,
+ group = topic, fill = topic)) +
+geom_line(stat = "identity", position = "identity", size=.8, linewidth=0.8) +
+#geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2)  +
+  labs(x = "",
+       y = "Topic proportion") +
+  theme_bw() + 
+  theme(axis.text.x = element_text(color = "black", size = 16),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank())+
+  theme(legend.position = "none") +
+  theme(axis.title.x  = element_text(color = "black", size = 18))+
+  theme(axis.text.x = element_text(color = "black", size = 18))+
+  theme(axis.text.y = element_text(color = "black", size = 18))+
+  theme(axis.title.y  = element_text(color = "black", size = 18))+
+  scale_color_discrete(name = "")+
+  theme(legend.text = element_text(size = 18))+
+  theme(plot.title = element_text(color = "black", size = 18, lineheight = 0.5),
+        legend.title.align = NULL) +
+  scale_x_continuous(breaks=c(1988, 1993, 1998, 2003, 2008, 2013, 2018, 2022)) +
+  facet_wrap(~ topic) +
+  theme(strip.text = element_text(size = 18)) +
+  scale_fill_discrete(name="") +
+  theme(axis.text.x=element_text(angle = 90, vjust = 0.5))
+
+effects_year_graph
+
+```
+
+
+
+```{r include=FALSE}
+
+library(compositions)
+
+theta20 <- topic_model$theta  #theta14 is the document-topic matrix
+
+cd<-acomp(theta20) #the transformation
+
+dd <- as.dist(variation(cd))
+
+hc = hclust(dd, method="ward.D2")
+
+```
+
+
+```{r fig.height=8, fig.width=12, warning=FALSE}
+
+library(dendextend)
+
+# Convertir hc en dendrogramme
+d <- as.dendrogram(hc)
+
+# Modifier les labels en ajoutant "Topic " devant chaque numéro
+labels(d) <- paste0("Topic ", labels(d))
+
+# Colorer les branches (exemple k = 8)
+d_colored <- color_branches(d, k = 4)
+
+# Afficher avec les labels modifiés
+par(mar = c(4, 4, 2, 2))  # marges
+
+plot(d_colored,
+     ylab = "Distance",
+     cex = 1,         # taille des labels des feuilles (ex: "Topic 1")
+     cex.lab = 1,     # taille du label de l'axe y ("Distance")
+     cex.axis = 1,      # taille des chiffres sur les axes
+     cex.main = 2     # taille du titre principal (si tu en mets un)
+)
+
+```
+
+
+# Calculating topic correlations (topicCorr)
+
+
+
+```{r}
+library(network)
+library(visNetwork)
+library(igraph)
+library(statnet)
+library(intergraph)
+library(devtools)
+library("devtools")
+#install_github("DougLuke/UserNetR")
+#library(UserNetR)
+```
+
+
+
+```{r}
+# Topic correlations using function topicCorr()
+mod.out.coor <- topicCorr(topic_model, method = "simple", cutoff = 0)
+# create objects representing topic scores & correlation matrix
+theta <- topic_model$theta
+cor_theta <- cor(theta)
+
+```
+
+
+# Network analysis : Graphical display of topic correlations.
+
+# Topic Correlation Graph (Tie strength > 0.01). Node size reflects corpus-level topic proportion. Ties indicate greater likelihood that topics are discussed within common documents. Coloring emphasizes topic clusters.
+
+
+```{r}
+topic.numbers=c(1:14)
+
+topic.labels<- paste0("Topic ", 1:14)
+```
+
+
+
+```{r fig.height=17, fig.width=18, warning=FALSE}
+m <- mod.out.coor$poscor
+m<-m[c(1:14),c(1:14)]   # sous-matrice 14x14
+
+net<-network(m,ignore.eval=FALSE,names.eval="like", directed=FALSE)
+network.vertex.names(net)<-topic.labels
+g<-asIgraph(net)
+#plot(g)
+
+modularity(cluster_louvain(g))
+modularity(cluster_edge_betweenness(g))
+modularity(cluster_leading_eigen(g))
+
+set.seed(123)
+cl<-cluster_louvain(g)
+#plot(cl,g)
+modularity(cl)
+V(g)$community<-cl$membership
+nodes<-data.frame(topic=c(1:14),id=V(g)$vertex.names, group=V(g)$community)
+
+topic.nl<-data.frame(label=topic.labels, number=topic.numbers)
+topic.nl$seq=seq(1:nrow(topic.nl))
+
+edge<-get.data.frame(g,what="edges")  
+
+
+colnames(topic.nl)[3]<-"from"
+edges<-edge%>%left_join(topic.nl,by="from")
+edges$from=edges$number
+colnames(topic.nl)[3]<-"to"
+edges<-edges%>%left_join(topic.nl,by="to")
+edges$to=edges$number.y
+edges<-edges%>% dplyr::select(label.x,label.y)
+colnames(edges)[1:2]<-c("from","to")
+
+graph<-graph.data.frame(edges,directed=F)
+degree_value<-igraph::degree(graph) ##node size= the number of degrees
+nodes$value<-degree_value[match(nodes$id,names(degree_value))]
+```
+
+
+```{r fig.height=17, fig.width=30, warning=FALSE}
+
+network <- visNetwork(nodes,
+                   edges, 
+                   width = "100%", 
+                   height = 900)%>%
+  visOptions(highlightNearest = T, nodesIdSelection = F) %>%
+  visInteraction(navigationButtons = F, 
+                 dragNodes = T,
+                 dragView = T, 
+                 zoomView = TRUE)%>%
+  visNodes() #%>%
+  #visEdges(arrows = 'to')%>%
+  #visLegend() 
+
+  #visSave(file = "network.html")
+
+network
+```
+
+
+## Extraction des proportions des thèmes
+    
+## Nous utilisons make.dt() pour récupérer le document-topic-matrix()  (les probabilités des 20 thèmes dans chaque document)
+
+```{r}
+theta <- make.dt(topic_model)
+
+```
+
+
+# Merger les topics avec les données originales
+
+
+```{r}
+
+# Sauvegarde temporaire de l'objet 'out' dans 'out_reserve' pour conserver les données originales
+out_reserve <- out
+
+# Ajout d'une colonne d'identification unique 'ID' dans les métadonnées pour chaque article
+out$meta$ID <- seq.int(nrow(out$meta))
+
+# Extraction de la matrice des proportions de topics (theta) issue du modèle, convertie en dataframe
+theta <- data.frame(topic_model$theta)
+
+# Attribution d'un identifiant unique 'ID' aux lignes de la matrice theta, correspondant aux documents
+theta$ID <- seq.int(nrow(theta))
+
+# Fusion des métadonnées et de la matrice theta via la colonne 'ID' pour obtenir un dataframe complet
+full_data_large <- merge(out$meta, theta)
+
+# Suppression des colonnes dupliquées créées lors de la fusion (suffixes .x et .y)
+full_data_large <- full_data_large %>%
+  dplyr::select(-ends_with(c(".x", ".y")))
+
+```
+
+
+#################### PARTIE 2 : ANALYSE DE SENTIMENT (TON) ###############################################
+
+## Sentiment global par document
+
+```{r}
+## Appliquer un dictionnaire de sentiment à une matrice document-terme
+dfm_lsd <-
+  dfm_lookup(dfm_newspapers,                      # Applique un dictionnaire à la DFM dfm_newspapers
+             dictionary = data_dictionary_LSD2015[1:2], # Utilise les deux premières catégories du dictionnaire LSD2015 (positive et negative)
+             exclusive = TRUE,                   # Ignore les mots qui ne figurent pas dans le dictionnaire
+             case_insensitive = TRUE,            # Ignore la casse (majuscules/minuscules)
+             verbose = FALSE) %>%
+  # convertit ensuite la DFM en data.frame (format tabulaire)
+  convert(to = "data.frame") %>%
+  mutate(
+    total_words = ntoken(dfm_newspapers),       # Calcule le nombre total de mots dans chaque document
+    pos_perc = 100 * positive / total_words,    # Calcule le pourcentage de mots positifs
+    neg_perc = 100 * negative / total_words,    # Calcule le pourcentage de mots négatifs
+    net_perc = pos_perc - neg_perc              # Calcule le score net de sentiment (positif - négatif)
+  )
+
+```
+
+
+```{r}
+data_lsd <- dfm_lsd %>%
+  dplyr::transmute(
+    doc_id = doc_id,                 # Garde seulement l’identifiant du document
+    sentiment_global = net_perc     # Renomme le score net en "sentiment_global"
+  )
+  
+```
+
+
+```{r}
+full_data_large <- cbind (full_data_large, data_lsd)
+```
+
+
+
+```{r fig.height=8, fig.width=15}
+
+library(lubridate)
+
+data_lsd_graph <- full_data_large %>%
+  mutate(month = floor_date(date, unit = "month")) %>%  # Arrondit la date au début du mois
+  group_by(month) %>%                                   # Regroupe par mois
+  summarise(sentiment = mean(sentiment_global, na.rm = TRUE))  # Moyenne mensuelle du score
+
+# Graphique
+ggplot(data_lsd_graph, aes(x = month, y = sentiment)) +
+  geom_line(size = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", size = 1) +
+  labs(x = NULL, y = "Score mensuel de sentiment") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(
+      angle = 45, 
+      size = 14, 
+      vjust = 0.5,  # Ajuste la hauteur
+      hjust = .5,
+      color = "black"),
+    axis.text.y = element_text(size = 14, color = "black"),
+    axis.title.x = element_text(size = 18, color = "black"),
+    axis.title.y = element_text(size = 18, color = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "none",
+    strip.text = element_text(size = 18)
+  ) +
+  scale_y_continuous(expand = c(.05, 0)) +
+  scale_x_date(
+    limits = as.Date(c("1988-02-01", "2022-12-31")),
+    date_breaks = "2 years",
+    date_labels = "Jan %Y"
+  )
+
+```
+
+```{r}
+full_data_large <- full_data_large %>%
+  
+  # 1. Renommer les colonnes qui commencent par "X" en "Topic 1", "Topic 2", etc.
+  rename_with(~ str_replace(., "^X", "Topic "), starts_with("X")) %>%
+  
+  # 2. Renommer la variable "sentiment_global" en "Sentiment global"
+  rename(`Sentiment global` = sentiment_global) %>%
+  
+  # 3. Supprimer certaines colonnes inutiles
+  dplyr::select(-doc_id, -day, -month, -ID)
+
+```
+
+
+######################### PARTIE 3 : REGRESSION ###############################################
+
+
+
+```{r}
+topics_regression <- full_data_large %>%
+  # Regrouper les données par année et par source médiatique
+  group_by(year, source) %>%
+  
+  # Calculer la moyenne de toutes les colonnes numériques pour chaque groupe
+  summarise(
+    across(
+      where(is.numeric),              # Sélectionner uniquement les colonnes numériques
+      \(x) mean(x, na.rm = TRUE)      # Calculer la moyenne en ignorant les valeurs manquantes
+    ),
+    
+    .groups = "drop"                  # Ne pas conserver les groupes après l'opération
+  )
+
+```
+
+
+
+## Importer les données agrégées administratives de statistique canada
+
+```{r}
+donnee_agrege_statcan <- read_xlsx("immigrant_chomage_homicide.xlsx")
+```
+
+
+
+```{r}
+topics_regression <- merge(topics_regression, donnee_agrege_statcan)
+```
+
+
+```{r}
+library(scales)  # Charge la librairie 'scales' pour utiliser la fonction rescale()
+
+topics_regression <- topics_regression %>%
+  mutate(
+    # Appliquer une transformation centrée-réduite (min-max scaling) sur les variables continues sélectionnées
+    across(
+      c(pourcentage.immigrant, taux.chomage, nombre.homicide), 
+      ~ rescale(.)  # Transformation des valeurs entre 0 et 1
+    )
+  )
+```
+
+
+```{r}
+# Crée une nouvelle variable 'Time' qui représente le nombre d'années écoulées depuis 1988
+topics_regression$Time <- topics_regression$year - 1988
+
+```
+
+
+```{r}
+topics_regression  <- topics_regression  %>%
+  mutate(
+    # Attribue le parti politique au pouvoir en fonction des périodes (approximativement les années de mandat en Ontario)
+    parti = case_when(
+      year %in% c(1988:1990, 2003:2013, 2013:2018) ~ "Liberal Party", 
+      year %in% c(1990:1995) ~ "New Democratic Party",   
+      year %in% c(1995:2002, 2002:2003) ~ "Progressive Conservative Party",
+      year %in% c(2018:2022) ~ "Progressive Conservative Party"
+    ),
+
+    # Convertit la variable "parti" en facteur avec un ordre spécifique (utile pour l'interprétation des modèles)
+    parti = factor(parti, levels = c("Liberal Party", 
+                                     "Progressive Conservative Party",
+                                     "New Democratic Party")),
+    # Crée des variables indicatrices pour les années électorales (utiles dans les régressions)
+    year.election.1990 = ifelse(year == 1990, 1, 0),
+    year.election.1995 = ifelse(year == 1995, 1, 0),
+    year.election.1999 = ifelse(year == 1999, 1, 0),
+    year.election.2003 = ifelse(year == 2003, 1, 0),
+    year.election.2007 = ifelse(year == 2007, 1, 0),
+    year.election.2011 = ifelse(year == 2011, 1, 0),
+    year.election.2014 = ifelse(year == 2014, 1, 0),
+    year.election.2018 = ifelse(year == 2018, 1, 0),
+    year.election.2022 = ifelse(year == 2022, 1, 0))
+
+```
+
+
+                         
+```{r}
+## Liste des variables indépendantes utilisées dans les régressions
+indep_var_list <- list(c(
+  "Time",                     # Temps écoulé depuis 1988 (mesure temporelle)
+  "pourcentage.immigrant",    # Pourcentage d'immigrants (variable contextuelle)
+  "taux.chomage",             # Taux de chômage
+  "parti",                    # Parti politique au pouvoir
+  # Variables indicatrices pour les années électorales (effets ponctuels)
+  "year.election.1990", 
+  "year.election.1995", 
+  "year.election.1999", 
+  "year.election.2003", 
+  "year.election.2007", 
+  "year.election.2011", 
+  "year.election.2014",
+  "year.election.2018", 
+  "year.election.2022",
+  "source",                   # Nom du média (ex. : Toronto Star, etc.)
+  "nombre.homicide"           # Nombre d’homicides (climat sécuritaire)
+))
+
+# Noms des variables dépendantes à analyser : les 14 topics + le sentiment global
+dep_vars <- c(paste0("Topic ", 1:14), "Sentiment global")
+
+# Ajoute des backticks autour des noms pour éviter les erreurs si noms avec espace
+dep_vars_bt <- paste0("`", dep_vars, "`")
+
+```    
+
+
+## Modèle linéaire mixte avec effet aléatoire
+
+```{r warning= FALSE, message=FALSE}
+
+
+library(lme4)  # Pour le modèle à effets mixtes
+
+regression <- Map(function(x, y) {
+  
+  # Construire la formule dynamique : y ~ x1 + x2 + ... + (1 | year)
+  
+  fmla <- as.formula(paste(y, "~", paste(x, collapse = " + "), "+ (1|year)"))
+  
+  # Ajuster le modèle linéaire mixte avec effet aléatoire sur l'année
+  
+  lmer(fmla, data = topics_regression, REML = TRUE)
+}, indep_var_list, dep_vars_bt)
+
+```
+
+
+```{r}
+# Générer un tableau récapitulatif des résultats de toutes les régressions
+# Avec :
+# - show.ci = FALSE : ne pas afficher les intervalles de confiance
+# - p.style = "stars" : afficher les niveaux de significativité avec des étoiles
+# - digits.p = 3 : arrondir les p-values à 3 décimales
+# - digits = 2 : arrondir les coefficients à 2 décimales
+# - file = "regression.doc" : exporter le tableau au format Word dans ce fichier
+
+sjPlot::tab_model(regression, 
+                  show.ci = FALSE, 
+                  p.style = "stars", 
+                  digits.p = 3, 
+                  digits = 2,
+                  file = "regression.doc")
+
+```
+
+############################################## FIN LABO  ##############################################
+
+
