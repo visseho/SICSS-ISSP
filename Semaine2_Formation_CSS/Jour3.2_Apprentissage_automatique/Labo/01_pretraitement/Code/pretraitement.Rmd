@@ -1,0 +1,401 @@
+---
+title: "Prétraitement des données"
+author: "Adjiwanou - Mounchingam"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+## Dresser la table
+
+```{r}
+#install.packages("table1")
+
+rm(list = ls())
+library(tidyverse) 
+library(summarytools)   # Analyse descriptive
+library(gtsummary)      # Analyse descriptive
+library(table1)         # Analyse descriptive
+library(haven)          # Ouvrir les fichiers stata
+
+
+```
+
+
+# Ouvrir une base de données
+
+```{r}
+
+
+bf <- read_dta("../Donnee/BFKR81FL.DTA")
+
+```
+
+
+
+# Liste des noms de fichiers de données pour chaque pays d'afrique de l'ouest
+
+```{r}
+
+KR <- c("BFKR81FL","BJKR71FL","CIKR81FL","GMKR81FL","GNKR71FL","LBKR7AFL","MLKR7AFL","MRKR71FL","NGKR7BFL","NIKR61FL","SLKR7AFL","TGKR61FL")
+
+
+```
+
+
+#  Fonction pour traiter les fichiers enfants
+
+- M18 poids qualitatif
+- midx : 
+
+
+```{r}
+
+file_kr <- function(data) {
+  data_kr <- read_dta(paste0("../Donnee/",data,".DTA"))
+  data_kr_sub <- data_kr %>%
+    select(caseid,v000,v001,v002,v005,v131,v157,v158,v159,v106,v743a,v743b,
+           v743d,v744a,v744b,v744c,v744d,v744e,v717,v012,midx, m18, m19,b11,b4,m15, bord,v150,
+           v151,v190,v136,v025,v130,v445,b5, v701,v024,v367,v426,v113,v115,
+           v116,v445,m14,m70,v313)
+  return(data_kr_sub)
+}
+
+# purrr
+
+data_kr <- map(KR, file_kr)
+
+```
+
+
+```{r}
+
+dhs_child_west_africa <- bind_rows(data_kr)
+
+save(dhs_child_west_africa, file = "dhs_child_west_africa.rda")
+
+freq(dhs_child_west_africa$m18)
+
+```
+
+Noms des variables : 
+  - v367 : enfant était voulu (1: voulu à l'époque, 2: voulu pour plus tard, 3: ne plus vouloir du tout)
+  - v426 : quand l'enfant a été mis au sein?
+  - v113 : Source d'eau de boisson 
+  - v115 : temps jusqu'à la source d'eau de boisson
+  - v116: type de toilette
+  - v445 : indice de masse corporel
+  - m14: nombre de visite prénatale durant la grossesse
+  - m70: visites postnatales dans les 2 mois mois après l'accouchement (oui/non)
+  - v313: Utilisation de contraceptive (à coder oui/non)
+
+## Création de nos différentes variables et leur labelisation
+
+
+```{r}
+
+
+
+data <- dhs_child_west_africa
+
+freq(data$b5)
+
+data <- data %>% 
+  mutate(dead = if_else(b5 == 0, 1, 0)) %>% 
+  mutate(dead = factor(dead,levels=c(0, 1),labels = c("alive","dead")),
+         ponderation = v005/1000000)
+
+
+freq(data$dead)
+```
+
+- Poids qualitatif
+
+```{r}
+
+freq(data$m18)
+freq(data$midx)
+data <- data %>% 
+  mutate(poids_quali = factor(case_when(
+    m18 == 1 ~ "Very large",
+    m18 == 2 ~ "Larger than average",
+    m18 == 3 ~ "Average",
+    m18 == 4 ~ "Smaller than average",
+    m18 == 5 ~ "Very small",
+    m18 == 8 | m18 == 9 ~ NA_character_,
+    is.na(m18) ~ "à exclure"
+  )))
+
+ctable(data$poids_quali, factor(data$m18), "no")
+
+```
+
+
+education de la femme (v106): 
+                              
+```{r}
+
+freq(data$v106)
+data <- data %>% mutate(educ = factor(v106, levels = c(0,1,2,3), labels = c("Sans instruction","Primaire","Secondaire","Supérieur")))
+freq(data$educ)
+
+```
+
+statut d'emploi (v717) [recoder comme suit : 0:Entrepreneures agricoles,
+                                             1:Travailleurs qualifiés ou non qualifiés
+                                             
+                                             2:Sans emploi
+```{r}
+
+data <- data %>% mutate(activite = case_when(v717 == 4 ~ 0,
+                                             v717 == 1 | v717 == 2 | v717 == 3
+                                             | v717 == 7 | v717 == 8 | v717 == 9 ~ 1, 
+                                             v717 == 0 ~ 2),
+                       activite=factor(activite, levels=c(0:2),labels=c("Entrepreneures agricoles","Travailleuses qualifiées ou non qualifiées","Sans emploi")))
+
+
+freq(data$activite)
+```
+
+
+attitude face à la violence (v744a,v744b,v744c,v744d,v744e)
+ - justifié de battre si la femme sort sans averti son mari (V744a) : 0 : Non
+                                                                      1 : Oui
+                                                                      8 : missing
+ - justifié de battre si la femme si elle néglige les enfants (v744b) : 0 : Non
+                                                                        1 : Oui
+                                                                        8 : missing
+ - Justifié de battre si la femme se dispute avec son mari(v744c) :     0 : Non
+                                                                        1 : Oui
+                                                                        8 : missing
+ - Justifié de battre si la femme refuse le sexe à son mari(v744d) :    0 : Non
+                                                                        1 : Oui
+                                                                        8 : missing
+ - Justifié de battre si la femme brule la nourriture (v744e) :         0 : Non
+                                                                        1 : Oui
+                                                                        8 : missing
+
+```{r}
+
+data$v744a[data$v744a == 8] <- NA
+data$v744b[data$v744b == 8] <- NA
+data$v744c[data$v744c == 8] <- NA
+data$v744d[data$v744d == 8] <- NA
+data$v744e[data$v744e == 8] <- NA
+
+data <- data %>% mutate(attitude_violence = v744a+v744b+v744c+v744d+v744e,
+                       attitude_violence = case_when(attitude_violence==0~1,
+                                                   attitude_violence %in% c(1:5)~2),
+                       attitude_violence=factor(attitude_violence, levels = c(1,2),labels=c("Non favorable","Favorable")))
+
+
+
+data %>% filter(is.na(attitude_violence)) %>% select(v744a,v744b,v744c,v744d,v744e,attitude_violence)
+
+freq(data$attitude_violence)
+```
+                                                                        
+pouvoir decisionnel de la femme au sein du ménage (v743a,v743b,v743d)
+ - Prise de décision  concernant les soins de santé (v743a) :   0 : femme seule 
+                                                                1 : femme et mari/partenaire
+                                                                2 : mari/partenaire seul
+                                                                3:  [5,6] Autres personnes
+                                                                NA: missing
+  - Prise de décision  concernant les achats du ménages (v743b) : 0 : femme seule 
+                                                                  1 : femme et mari/partenaire
+                                                                  2 : mari/partenaire seul
+                                                                  3 :  [5,6] Autres personnes
+                                                                  NA: missing
+                                                                
+  - Prise de décision  concernant la visite en famille (v743d) :  0 : femme seule 
+                                                                  1 : femme et mari/partenaire
+                                                                  2 : mari/partenaire seul
+                                                                  3 : Autre personnes                                                                                                                    NA: missing
+
+```{r}
+
+freq(data$v743d)
+data <- data %>% 
+  mutate(decision_sante = case_when(
+    v743a == 1 ~ 0,
+    v743a == 2 ~ 1,
+    v743a == 4 ~ 2,
+    v743a == 5 | v743a == 6 ~ 3),
+    decision_achat = case_when(
+      v743b == 1 ~ 0,
+      v743b == 2 ~ 1,
+      v743b == 4 ~ 2, v743b == 5 | v743b == 6 ~ 3),
+    decision_visite=case_when(
+      v743d==1~0,
+      v743d==2~1,
+      v743d==4~2,
+      v743d==5 | v743d==6 ~3),
+    pouvoir_decision=decision_sante+decision_achat+decision_visite,
+    pouvoir_decision=case_when(
+      pouvoir_decision<2~1,
+      pouvoir_decision==2 |pouvoir_decision==3~2,
+      pouvoir_decision >=4~3),
+    pouvoir_decision=factor(pouvoir_decision,levels=c(1:3),labels=c("Elévé","Moyen","Faible")))
+                       
+freq(data$pouvoir_decision)
+
+
+
+```
+                                                          
+                                                                  
+- Religion de la mère (v130)
+ - Age de la mère (v012)
+ - Sexe de l’enfant (b4)
+ - Poids de l’enfant à la naissance (m19)
+ - Rang de l’enfant à la naissance (bord)
+ - Intervalle entre l’enfant et la naissance précédente (b11)
+ - Lieu d’accouchement (m15)
+ - Niveau d'instruction du conjoint (v701)
+
+```{r}
+
+data <- data %>% mutate(religion=case_when(v130==1 | v130==2 | v130==3~1,
+                                          v130==4~2,
+                                          v130==5 | v130==7 | v130==96~3
+                                            ),
+                         religion=factor(religion, levels = c(1:3),labels = c("Chrétien","Musulman","Animistes et autres")),
+                         age_mere=case_when(v012<20~1, 
+                                          v012 >=20 & v012<30~2,
+                                          v012 >=30 & v012<40~3,
+                                          v012 >=40~4),
+                       age_mere=factor(age_mere,levels = c(1:4),labels = c("Moins de 20 ans","Entre 20 et 29 ans ","Entre 30 ans et 39 ans","40 ans et plus")),
+                       sex_enfant=factor(if_else(b4==1,1,2),levels = c(1,2), labels = c("Masculin","Feminin")),
+                       
+                       poids_nais = case_when(m19<2500~1,
+                                            m19 >=2500 & m19<4000~2,
+                                            m19 >=4000 & m19<7500~3,
+                                            m19==9996 | m19==9998~ NA_real_),
+                       poids_nais=factor(poids_nais,levels = c(1:3), labels = c("Faible","Normal","Elevé")),
+                       rang_naiss=case_when(bord==1~1,
+                                            bord==2 | bord==3~2,
+                                            bord >=4~3),
+                                            
+                       rang_naiss=factor(rang_naiss,levels = c(1:3),labels = c("Premier né","Rang 2 ou 3","Rang 4 ou plus")),
+                       
+                       interval_precedent=case_when(b11<24~1,
+                                                    b11 >=24~2,
+                                                    
+                                                    is.na(b11)~3),
+                       interval_precedent=factor(interval_precedent,levels = c(1:3),labels = c("Moins de 24 mois","Plus de 24 mois","Non concerné")),
+                       
+                       lieu_accouch=factor(if_else(m15==10 | m15==11 | m15==12,1,2), levels = c(1,2),labels = c("Domicile","Formation sanitaire")))
+
+data <- data %>% mutate(ins_conj=factor(v701,levels=c(0:3),labels=c("Sans instruction","Primaire","Secondaire","Supérieur")))
+
+```
+
+- v367 : enfant était voulu (1: voulu à l'époque, 2: voulu pour plus tard, 3: ne plus vouloir du tout)
+- v426 : quand l'enfant a été mis au sein? (rearranger comme suit :mis au sein dans les une heures suivant sa naissance ?)
+- v113 : Source d'eau de boisson 
+- v116: type de toilette
+- v445 : indice de masse corporel
+- m14: nombre de visite prénatale durant la grossesse
+- m70: visites postnatales dans les 2 mois mois après l'accouchement (oui/non)
+- v313: Utilisation de contraceptive (à coder oui/non)
+
+```{r}
+
+data <- data %>% mutate(naissance_voulu=factor(v367,levels=c(1:3),labels=c("avait voulu","voulu pour plutard","indésirée")),
+                       allaiter_heure=case_when(v426==0 | v426==100~1,
+                                                v426==101 | v426==102 |v426==102 | v426==103 |v426==103 | v426==104 | v426==105 | v426==106 | v426==107 | v426==108 | v426==109 | v426==110 | v426==111 | v426==112 | v426==113 | v426==114 | v426==115 | v426==116 | v426==120 | v426==121 | v426==123 | v426==201 | v426==202 | v426==203 | v426==204 | v426==205 | v426==206 | v426==207 | v426==210 | v426==212 | v426==214 | v426==215 | v426==218 | v426==221 | v426==223~2),
+                       allaiter_heure=factor(allaiter_heure,levels =c(1,2),labels=c("Oui","Non")),
+                       source_eau=if_else(v113==10 |v113==11 |v113==12 |v113==13 |v113==14 |v113==41 |v113==61 |v113==71,1,2),
+                   source_eau=factor(source_eau,levels = c(1,2),labels=c("Amelioree","Non amelioree")),
+                   type_toilet=if_else(v116==10 |v116==11| v116==12 |v116==13 |v116==14 |v116==15 |v116==20 |v116==21      |v116==22,1,2),
+                   type_toilet=factor(type_toilet,levels = c(1,2),labels=c("Amelioree","Non amelioree")),
+                  
+                   contraception=if_else(v313==0,1,2),
+                   contraception=factor(contraception,levels=c(1,2),labels=c("Non","Oui")))
+
+
+```
+
+- Degré d’exposition de la femme aux médias  (à partir de v157,v158,v159)
+
+```{r}
+
+freq(data$v159)
+
+data <- data %>% mutate(degmedia=v157+v158+v159, 
+                       degmedia=case_when(degmedia==0~0,
+                                          degmedia==1 | degmedia==2 ~1,
+                                          degmedia==3 | degmedia==4~2,
+                                          degmedia==5 | degmedia==6~3),
+                       degmedia=factor(degmedia, levels =c(0:3),labels =c("Nul","Faible","moyenne","Elevé")))
+
+freq(data$degmedia)
+
+```
+ 
+
+## Caractéristiques des ménages
+
+Taille du menage (v136)
+Sexe du chef de ménage (v151)
+Niveau de vie du ménage (v190)
+
+```{r}
+data <- data %>% mutate(taille_menage=case_when(v136<=3~1,
+                                               v136 >=4 & v136<=6~2,
+                                               v136 >=7~3),
+                       taille_menage=factor(taille_menage,levels = c(1:3),labels = c("2-3","4-6","7 et plus")),
+                       sex_chef=factor(if_else(v151==1,1,2),levels = c(1,2), labels = c("Masculin","Feminin")),
+                       niveau_vie=case_when(v190==1 | v190==2~1,
+                                        v190==3~2,
+                                        v190==4 |v190==5~3),
+                   niveau_vie=factor(niveau_vie,levels=c(1:3),labels = c("Pauvre","Moyen","Riche"))
+                       )
+
+freq(data$niveau_vie)
+```
+
+
+## Caractéristiques Communautaires
+
+Milieu de résidence (v025)
+
+
+```{r}
+
+data <- data %>% mutate(milieu_residence=factor(v025,levels = c(1,2),labels = c("Urbain","Rural")))
+
+freq(data$milieu_residence)
+
+```
+
+
+```{r}
+
+#save(data, file = "01-pretatement/code/dhs_child_west_africa.rda")
+
+#save(data, file = "../../02_Apprentissage_Supervise/01_Regression/dhs_child_west_africa.rda")
+
+
+## Tri à plat des variables 
+
+
+table1(~ dead+educ+activite+attitude_violence+pouvoir_decision+religion+age_mere+degmedia+ins_conj+sex_enfant+poids_nais+m18+m19+rang_naiss+interval_precedent+lieu_accouch+naissance_voulu+allaiter_heure+source_eau+type_toilet+contraception+taille_menage+sex_chef+niveau_vie+milieu_residence, data = data)
+
+```
+
+## Manque deux autres varieables
+
+- rang de naissance de l'enfant
+- grossesse gémélaire
+- Age à la grossesse
+
+
+
+
+
+
+
+

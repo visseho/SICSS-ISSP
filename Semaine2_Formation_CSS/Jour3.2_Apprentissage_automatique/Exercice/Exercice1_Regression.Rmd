@@ -1,0 +1,148 @@
+---
+title: 'Exerice 1: Régression linéaire et logistique'
+author: "Visseho Adjiwanou, PhD."
+institute: "Département de Sociologie - UQAM"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+
+# PARTIE A: Regression à la main (pas de formule)
+
+Les données du Tableau ci-dessous provenant de Data Bank donnent le poids corporel (lb) et la longueur corporelle (cm) des louves :
+
+| Observation | 1 | 2| 3| 4|5| 6| 7|
+|-------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+|Poids (lb)   | 57 | 84| 90|	71|	77	|68|	73|
+|Longueur (cm)  |123 | 129| 143|	125|	122|	125|	122|
+
+1. Entrer les données dans R
+https://www.dummies.com/programming/r/how-to-create-a-data-frame-from-scratch-in-r/
+
+2. Présenter un graphique montrant la relation entre le poids (variable dépendante) et la taille (variable indépendante)
+
+3. Quelle  est le sens de cette relation?
+
+Une relation positive. C'est à dire, qu'une plus grande taille est associée à un plus grand poids.
+
+4. En estimant que cette relation est linéaire, calculer les paramêtres $\alpha$ et $\beta$.
+
+5. Calculé le poids prédit
+
+6. Calculé le résidu
+
+
+
+
+Rappel: 
+
+- Coéficients estimés : $$\hat{\alpha} = \bar{Y} -  \hat{\beta} \bar{X}$$
+
+$$\hat{\beta} = \frac{\sum_{i=1}^n(Y_i - \bar{Y})(X_i - \bar{X})}{\sum_{i=1}^n(X_i - \bar{X})^2}$$
+
+- Valeur prédite de la variable dépendante: $$\hat{Y} = \hat{\alpha} +  \hat{\beta} X$$
+- Résidue: $$\hat{\epsilon} = Y - \hat{Y}$$
+
+
+
+# PARTIE B: Déterminant du poids à la naissance
+
+Vous travaillez avec la base de données `weight.dta` pour analyser le déterminant de la survie des enfants en Tanzanie. L'une des conditions de la survie des enfants est leur poids à la naissance. En utilisant cette base de données, nous voulons comprendre les déterminants du poids à la naissance en utilisant le niveau d’éducation de la mère, son statut au travail, l'indice de richesse du ménage et le sexe de l’enfant. 
+
+Remarque: faite atention à l'extension de la base de données et utiliser la commande appropriée pour la charger.
+
+## Question 0
+
+- Quelle est la nature des variables m19 et v012?
+- Représenter graphiquement la relation entre les variables m19 et v012.
+
+##Question 1
+
+Exécutez la régression linéaire suivante:
+  - Variable dépendante: poids à la naissance (m19)
+  - Variable indépendante: âge actuel des femmes (v012)
+
+## Question 2
+
+Calculez le poids de naissance prédit, nommé p_weight
+
+## Question 3
+
+Comment interprétez-vous ce résultat?
+
+## Question 4 
+
+Présentez dans le même graphique le nuage de points de m19 et v012 et la droite de régression.
+
+## Question 5 
+
+Un de vos amis pense que l’effet de l’âge actuel des femmes sur le poids à la naissance est trop faible. Quel est le problème avec la variable âge des femmes?
+
+##Question 6 
+
+Le problème peut également dépendre de la variable dépendante. En effet, le poids à la naissance est renseignée de deux manières différentes, à partir de l'information dans les carnets de santé dans enfants, ou à partir d'une estimation faite par la femme. Vous vous en doutez bien que l'information dans le carnet de santé est plus crédible. La variable m19a vous donne des informations sur la manière dont l'information est collectée. Exécutez à nouveau la régression faite au 1) dans les deux groupes distincts de m19a. Est-ce qu'effet de l'âge change dans les deux cas? Interprétez vos résultats.
+
+## Question 7 
+
+Il y a plusieurs manières de tester la pertinence des hypothèses formulées pour l'utilisation de la méthode des moindres carrées pour estimer les paramètres des modèles de régression linéaire. Rappeler les hypothèses qui concernent les termes d'erreur. Et comme vous le voyez, la plupart de le vérification des hypothèses vont concerner les termes d'erreur. [Raju Rimal](https://rpubs.com/therimalaya/43190) présente les graphiques de diagnostics dans ce post. Documentez-vous sur l'ensemble de ses graphiques et dites et appliquer les à votre modèle estimé 1). des informations additionnelles peuvent être trouvées ici: https://wiki.qcbs.ca/r_atelier4, section 2.
+
+## Question 8 
+
+Un de vos amis a dit qu'il serait préférable de considérer le logarithme du poids à la naissance comme la variable dépendante.
+
+  - Calculez la variable logm19 représentant le logarithme de m19.
+  - Exécutez la régression: régressez logm19 sur v012
+  - Comment interprétez-vous le coefficient de v012
+
+
+
+
+# PARTIE C: Régresssion avec variables dépendantes qualitatives
+
+Vous travaillez toujours avec la base de données **weight.dta** pour analyser le déterminant de la survie de l'enfant en Tanzanie. En utilisant cet ensemble de données, nous voulons faire une régression sur la survie du nouveau-né en utilisant le niveau d’éducation de la mère, son statut au travail, son indice de richesse du ménage, le sexe de l’enfant, son poids à la naissance.
+
+## C1. Création de variables
+
+1. Création de la variable dépendante : Créez une nouvelle variable dichotomique appelée **dead** égale à 1 si l'enfant n'est PAS en vie et à 0 sinon.
+
+2. Créez les variables dichotomiques suivantes à partir de la variable niveau d'éducation (V106):
+  - educ0 : 1 si la femme n'a pas d'éducation et 0 autrement
+  - educ1 : 1 si la femme a le niveau d'éducation primaire, 0 autrement
+  - educ2 : 1 si la femme a au moins le niveau d'éducation secondaire, 0 autrement
+
+3. Créez les variables suivantes à partir de la variable du quintile de richesse (v190):
+  - quintile1 : 1 si le ménage est de quintile 1 et 0 autrement
+  - quintile2 : 1 si le ménage est de quintile 2 et 0 autrement
+  - quintile3 : 1 si le ménage est de quintile 3 et 0 autrement
+  - quintile4 : 1 si le ménage est de quintile 4 et 0 autrement
+  - quintile5 : 1 si le ménage est de quintile 5 et 0 autrement
+
+4. Sur la base de la variable d'âge des femmes (v012), créer les variables dichotomiques suivantes:
+  - age15_24 : 1 si la femme est âgée de 15 à 24 ans
+  - age25_34 : 1 si la femme est âgée de 25 à 34 ans
+  - age35_49 : 1 si la femme est âgée de 35 à 49 ans
+
+5. Sur la base de la variable poids de l'enfant à la naissance (m19), créer la variable catégorielle m19_1 qui prend les valeurs suivantes:
+  - m19_1 = "Moins que 2500g" si m19 <= 2500
+  - m19_1 = "Entre 2500 et 3400" si m19> 2500 & m19 <= 3400
+  - m19_1 = "Plus que 3400g" si m19> 3400
+
+Remarques: Considérez les valeurs appropriées lors de la création des nouvelles variables
+
+## C2. RÉGRESSION
+
+Exécutez les régressions suivantes et interprétez les résultats (que vous avez mis dans un tableau unique avec **stargazer**):
+
+1. Estimer le modèle de régression linéaire de la variable dépendante **dead** sur b4, m19_1, educ0, educ2, quintile2, quintile3, quintile4, quintile5, age15_24, age25_34,
+
+2. Estimer le modèle de régression logistique avec les mêmes variables qu'au 1
+  - Écrivez l'équation du modèle de la probabilité de décéder à partir des coefficients estimés. 
+  - Écrivez l'équation du modèle du logit de la probabilité de décéder à partir des coefficients estimés. 
+  - calculer manuellement le rapport de côtes pour les femmes âgées de 35 à 49 ans par rapport aux femmes âgées de 25 à 34 ans.
+
+3. Estimer le modèle de régression probit avec les mêmes variables qu'au 1
+
+

@@ -1,0 +1,1180 @@
+---
+title: 'Devoir 4: Régression linéaire'
+author: "Visseho Adjiwanou, PhD."
+institute: "Département de Sociologie - UQAM"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+
+# PARTIE A
+
+
+## Travaux pratiques
+
+Les données du Tableau ci-dessous provenant de Data Bank donnent le poids corporel (lb) et la longueur corporelle (cm) des louves :
+
+| Observation | 1 | 2| 3| 4|5| 6| 7|
+|-------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+|Poids (lb)   | 57 | 84| 90|	71|	77	|68|	73|
+|Longueur (cm)  |123 | 129| 143|	125|	122|	125|	122|
+
+1. Entrer les données dans R
+https://www.dummies.com/programming/r/how-to-create-a-data-frame-from-scratch-in-r/
+
+```{r}
+
+library(tidyverse)
+
+poids <- c(57, 84, 90, 71, 77, 68, 73)
+poids
+longueur <- c(123, 129, 143, 125, 122, 125, 122)
+longueur
+
+louve <- data_frame(poids, longueur)
+
+louve
+```
+
+2. Présenter un graphique montrant la relation entre le poids (variable dépendante) et la taille (variable indépendante)
+
+```{r}
+
+ggplot(louve) +
+  geom_point(aes(x = longueur, y = poids)) +
+  geom_smooth(aes(x = longueur, y = poids), method = "lm", se = FALSE, size = .5)
+
+```
+
+3. Quelle  est le sens de cette relation?
+
+Une relation positive. C'est à dire, qu'une plus grande taille est associée à un plus grand poids.
+
+4. En estimant que cette relation est linéaire, calculer les paramêtres $\alpha$ et $\beta$.
+
+
+```{r}
+
+louve <-
+  louve %>% 
+  mutate(dec_longueur = longueur - mean(longueur),
+         dec_longueur_sq = dec_longueur ^ 2,
+         dec_poids = poids - mean(poids),
+         prod_croise = dec_poids*dec_longueur)
+  
+louve
+
+
+
+coef_reg <- 
+  louve %>% 
+  summarise(beta = sum(prod_croise)/sum(dec_longueur_sq),
+            alpha = mean(poids) - beta*mean(longueur))
+
+coef_reg
+coef_reg[[1]]
+coef_reg[[2]]
+
+class(coef_reg[1])
+class(coef_reg[[1]])
+```
+
+```{r}
+
+ggplot(louve) +
+  geom_point(aes(x = longueur, y = poids)) +
+  geom_abline(aes(intercept = coef_reg[[2]], slope = coef_reg[[1]]), color = "red") +
+  geom_smooth(aes(x = longueur, y = poids), method = "lm", se = FALSE)
+
+```
+```{r}
+coef_reg
+
+ggplot(louve) +
+  geom_point(aes(x = longueur, y = poids)) +
+  geom_abline(data = coef_reg, aes(intercept = coef_reg$alpha, slope = coef_reg$beta), color = "red")
+
+```
+
+
+
+5. Calculé le poids prédit
+
+```{r}
+a <- coef_reg[[2]]
+a
+b <- coef_reg[[1]]
+b
+
+louve <-
+  louve %>% 
+  mutate(poids_pred = a + b	*longueur)
+
+louve
+```
+
+6. Calculé le résidu
+
+```{r}
+
+louve <-
+  louve %>% 
+  mutate( residu = poids - poids_pred)
+
+louve
+
+```
+
+Graphique 
+
+```{r}
+
+ggplot(louve) +
+  geom_point(aes(x = longueur, y = poids)) +
+  geom_smooth(aes(x = longueur, y = poids), method = "lm", se = FALSE, size = .5) +
+  geom_segment(aes(x = longueur, y = poids, xend = longueur, yend = poids_pred), color = "red")
+
+```
+
+
+## Régardons ce qu'on observe en utilisant directement la fonction de regression de r
+
+https://www.rdocumentation.org/packages/broom/versions/0.7.6
+
+```{r}
+#install.packages("broom")
+library(broom)
+?broom
+reg1 <- lm(formula =  poids ~ longueur, data = louve)
+reg1
+reg <- 
+  louve %>% 
+  lm(formula =  poids ~ longueur)
+
+
+reg1
+summary(reg1)
+summary(reg1)[2]
+
+tableau_reg <- tidy(reg1)
+tableau_reg
+tableau_reg$estimate
+
+glance(reg1)
+results <- augment(reg1)
+results
+
+# Changement variable indépendante
+louve <-
+  louve %>% 
+  mutate(longueur1 = longueur - 122)
+
+reg2 <- lm(formula =  poids ~ longueur1 , data = louve)
+reg2
+```
+
+
+
+Rappel: 
+
+- Coéficients estimés : $$\hat{\alpha} = \bar{Y} -  \hat{\beta} \bar{X}$$
+
+$$\hat{\beta} = \frac{\sum_{i=1}^n(Y_i - \bar{Y})(X_i - \bar{X})}{\sum_{i=1}^n(X_i - \bar{X})^2}$$
+
+- Valeur prédite de la variable dépendante: $$\hat{Y} = \hat{\alpha} +  \hat{\beta} X$$
+- Résidue: $$\hat{\epsilon} = Y - \hat{Y}$$
+
+# PARTIE B: Déterminant du poids à la naissance
+
+Vous travaillez avec la base de données `weight.dta` pour analyser le déterminant de la survie des enfants en Tanzanie. L'une des conditions de la survie des enfants est leur poids à la naissance. En utilisant cette base de données, nous voulons comprendre les déterminants du poids à la naissance en utilisant le niveau d’éducation de la mère, son statut au travail, l'indice de richesse du ménage et le sexe de l’enfant. 
+
+Remarque: faite atention à l'extension de la base de données et utiliser la commande appropriée pour la charger.
+
+##Question 1
+
+Exécutez la régression linéaire suivante:
+  - Variable dépendante: poids à la naissance (m19)
+  - Variable indépendante: âge actuel des femmes (v012)
+
+```{r, warning=FALSE}
+library(tidyverse)
+library(summarytools)
+#library(haven) Autre package qui peut lire des fichiers de type Stata
+library(readstata13)
+library(stargazer)
+
+poids <- read.dta13("weight.dta")
+
+```
+
+Remarque: En haut du chunk, j'ai inséré l'option `warning = FALSE` pour indiquer de ne pas afficher les avertissements. C'est à ce niveau que vous pouvez indiquer l'output que vous souhaitez.
+
+Il est essentiel avant de lancer une régression d'avoir une information sur les variables qui sont utilisées dans la régression.
+
+# Information sur les variables qui nous concernent
+
+```{r}
+class(poids$m19)
+class(poids$v012)
+
+```
+
+`Les deux variables étant de types numériques (concrètement des variables quantitatives ratio), on doit utiliser les paramètres de tendances centrales et de dispersions pour résumer l'information.`
+
+```{r}
+
+resume_var <- 
+  poids %>% 
+  summarise(poids_moyen = mean(m19, na.rm = TRUE),
+            variance_poids = var(m19, na.rm = TRUE),
+            Q1_poids = quantile(m19, probs = 0.25, na.rm = TRUE),
+            Q3_poids = quantile(m19, probs = 0.75, na.rm = TRUE),
+            age_moyen = mean(v012, na.rm = TRUE),
+            variance_age = var(v012, na.rm = TRUE),
+            Q1_age = quantile(v012, probs = 0.25, na.rm = TRUE),
+            Q3_age = quantile(v012, probs = 0.75, na.rm = TRUE))
+
+resume_var
+
+# On peut faire aussi simplement
+
+summary(poids$m19)
+summary(poids$v012)
+
+```
+
+`Le résumé du poids et de l'âge vous montre les erreurs possibles dans les données. Une autre manière de voir cela est de représenter les informations dans un graphique.` 
+
+```{r}
+
+ggplot(poids) +
+  geom_point(aes(x = v012, y = m19))
+
+```
+
+
+`**Remarque**: On peut aussi bien présenter les fréquences. Le but est de détecter des données abbérantes ou manquantes. Cependant, il faut éviter de présenter cela dans un rapport car la sortie du résultat est trop longue. On voit ainsi à la fin du résultat, les valeurs improbables. Mais une fois que vous avez fait cela pour vous assurer, il faut mettre un # devant le code pour ne plus l'exécuter.`
+
+```{r}
+
+#freq(poids$m19)
+
+```
+
+`Pour répondre aux questions, on doit donc supprimer les données problématiques`
+
+```{r}
+
+# Nouveau fichier sans les données abbérantes
+poids_bon <- 
+  poids %>% 
+  filter(m19 < 7500)
+
+# Regression avec les données initiales
+
+reg0 <- lm(formula = m19 ~ v012, data = poids)
+summary(reg0)
+
+# Régression après suppression des données abbérantes
+
+reg1 <- lm(formula = m19 ~ v012, data = poids_bon)
+summary(reg1)
+
+stargazer(reg0, reg1, title = "Regression linéaire", align = T, no.space = TRUE, type = "text")
+
+```
+
+`Une augmentation d'une année d'âge accroit le poids à la naissance de 9 grammes, alors que les données initiales donnaient une augmentation de 29 grammes.`
+
+
+## Question 2
+
+Calculez le poids de naissance prédit, nommé p_weight
+
+Les résultats de reg sont enrégistrés dans une **list**. Vous savez travailler avec les vecteurs, les matrices et les bases de données. Mais, on n'a pas travaillé avec les "lists". Une rapide information peut être trouvée ici: http://www.r-tutor.com/r-introduction/list
+
+
+### Réponse 2
+
+- On peut calculé la valeur prédite de différentes manières
+
+**1. utiliser la formule predict.lm**
+
+```{r}
+
+poids_bon <-
+  poids_bon %>% 
+  mutate(p_weigth = predict.lm(reg1))
+
+```
+
+**2. Utiliser les résultats du modèle**
+
+Les résultats du modèle sont stockés en tant que **list**. Vous pouvez facilement voir ces éléments en cliquant sur l'objet reg1 dans l'environnement. Voici quelques manipulations que vous pouvez faire à partir de cette liste.
+
+```{r}
+
+View(reg1)  # Ceci n'est pas supposé être nulle. Si c'est nulle chez vous aussi, faite:
+View(reg0)
+```
+
+Si vous cliquez sur **coefficients**, vous voyez qu'il comprend deux éléments. La valeur de l'intercep et de la pente. Cependant, **residuals** comprend 5358 éléments, exactement la taille de l'échantillon sur lequel est basé la régression. Regardez cela dans le tableau résumé en haut (question 1). C'est cela qui fait la particularité d'une liste que vous ne retrouvez pas ailleurs dans les autres logiciels. Elle comprend différents éléments de différents types. Bien sûr, le **residual** doit comporter autant d'éléments que la taille de l'échantillon. Pourquoi?
+
+On peut facilement accéder à ces données à partir des exemples suivants.
+On accède aux éléments d'une liste par double crochet: [[]]. Un seul crochet vous retourne habituellement une liste alors que le doudle vous retourne un vecteur.
+
+```{r}
+
+reg1[[1]]
+reg1["coefficients"] # ou
+reg1$coefficients
+
+
+
+intercept <- reg1[["coefficients"]][1]
+intercept
+slope <- reg1[["coefficients"]][2]
+slope
+
+```
+
+Connaissant les paramètres estimés de mon modèle (ici, l'intercept et la pente), je peux estimer la droite de régression et prédire les valeurs de la variable dépendante à partir de cette droite.
+
+```{r}
+
+poids_bon <-
+  poids_bon %>% 
+  mutate(p_weigth2 = intercept + slope*v012)
+
+```
+
+**3. Utiliser les informations stockés dans reg1**
+
+Comme vous voyez la liste créée de la régression, la valeur prédite est stockée dans les résultats reg1 aussi dans `fitted.values`. On peut l'utiliser directement.
+
+```{r}
+
+reg1[["fitted.values"]][1]
+
+c1 <- reg1[["fitted.values"]]
+
+poids_bon <-
+  poids_bon %>% 
+  mutate(p_weigth3 = c1)
+
+```
+
+
+## Question 3
+
+Comment interprétez-vous ce résultat?
+
+### Réponse
+
+C'est le poids à la naissance auquel on s'attendrait si le modèle est bien estimé. cela joue un rôle important pour déterminer les valeurs prédites pour les enfants dont on ne connait pas le poids à la naissance.
+
+## Question 4 
+
+Présentez dans le même graphique le nuage de points de m19 et v012 et la droite de régression.
+
+
+### Réponse 
+
+```{r}
+# Le graphique qui vous est demandé
+ggplot(poids_bon, aes(x = v012, y = m19)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+
+
+
+```
+
+On se rend compte que plusieurs individus ont les mêmes valeurs pour m19 et v012. C'est normal. Pour produire un graphique plus joli, on va déplacer aléatoirement les points avec la fonction **geom_jitter**.
+
+```{r}
+## Graphique avec déplacement aléatoire des points
+
+ggplot(poids_bon, aes(x = v012, y = m19)) +
+  geom_jitter(alpha = 0.2) +
+  geom_smooth(method = "lm", se = FALSE)
+
+```
+
+Il faut comprendre que si on avait mesuré les deux variables plus finement, c'est un peu ce genre de nuage qu'on aurait.
+
+## Question 5 
+
+Un de vos amis pense que l’effet de l’âge actuel des femmes sur le poids à la naissance est trop faible. Quel est le problème avec la variable âge des femmes?
+
+### Réponse
+
+L'effet de l'âge n'est peut être pas linéaire mais curvilinéaire, c'est-à-dire peut avoir la forme d'un U renversé. Expliquer pourquoi, on peut s'attendre à cela.
+
+```{r}
+
+poids_bon <-
+  poids_bon %>% 
+  mutate(v012carre = v012^2)
+
+reg_poly <- 
+  poids_bon %>% 
+  lm(formula = m19 ~ v012 + I(v012^2))
+
+summary(reg_poly)
+
+# Autre manière
+
+reg_poly1 <- 
+  poids_bon %>% 
+  lm(formula = m19 ~ poly(v012, 2))
+
+summary(reg_poly1)
+
+
+```
+Les deux manières ne donnent pas les mêmes résultats. Dans le premier cas, x et x au carré sont correlés. Or, nous savons que cela causent des problèmes d'estimation. La seconde approche évite ce problème en produsant des polynômes orthogonaux. 
+
+Dans les faits, on se contente d'utiliser la première méthode dont l'interprétation est facile. On régarde le signe du terme au carré pour savoir si l'effet de la variable est continue (même signe que le x) ou curvilinéaire (signe contraire). Avec le premier cas, on se rend compte qu'une année supplémentaire d'âge augmente le poids à la naissance de 39 grammes. Cependant, plus l'âge augmente, moins cet effet devient important (signe négatif). 
+
+## Question 6 
+
+Le problème peut également dépendre de la variable dépendante. En effet, le poids à la naissance est renseignée de deux manières différentes, à partir de l'information dans les carnets de santé dans enfants, ou à partir d'une estimation faite par la femme. Vous vous en doutez bien que l'information dans le carnet de santé est plus crédible. La variable m19a vous donne des informations sur la manière dont l'information est collectée. Exécutez à nouveau la régression faite au 1) dans les deux groupes distincts de m19a. Est-ce qu'effet de l'âge change dans les deux cas? Interprétez vos résultats.
+
+### réponse
+
+```{r}
+
+freq(poids_bon$m19a)
+
+## A partir de la carte
+reg_card <-
+  poids_bon %>% 
+  filter(m19a == "From card") %>% 
+  lm(formula = m19 ~ v012)
+
+summary(reg_card)
+
+## A partir de la mémoire
+reg_recall <-
+  poids_bon %>% 
+  filter(m19a == "From recall") %>% 
+  lm(formula = m19 ~ v012)
+
+summary(reg_recall)
+
+stargazer(N_total = reg1, carte = reg_card, memoire = reg_recall, title = "Regression linéaire", align = T, no.space = TRUE, type = "text")
+
+```
+
+`On voit que quelque soit l'approche, les deux résultats sont presque similaires. On peut donc supposer que les femmes font une bonne estimation du poids à la naissance de leur enfant.`
+
+
+## Question 7 
+
+Il y a plusieurs manières de tester la pertinence des hypothèses formulées pour l'utilisation de la méthode des moindres carrées pour estimer les paramètres des modèles de régression linéaire. Rappeler les hypothèses qui concernent les termes d'erreur. Et comme vous le voyez, la plupart de le vérification des hypothèses vont concerner les termes d'erreur. [Raju Rimal](https://rpubs.com/therimalaya/43190) présente les graphiques de diagnostics dans ce post. Documentez-vous sur l'ensemble de ses graphiques et dites et appliquer les à votre modèle estimé 1). des informations additionnelles peuvent être trouvées ici: https://wiki.qcbs.ca/r_atelier4, section 2.
+
+
+### Réponse
+
+`Dans ces codes, Raju crée une finction pour produire 6 différents graphiques de diasgnostiques. Par exemple, la première fonction crée le graphique p1 qui redresse les valeurs prédites sur les résidus. Ce graphique inclu aussi la ligne de régression Loess (http://r-statistics.co/Loess-Regression-With-R.html).` 
+
+
+```{r}
+
+require(ggplot2)
+diagPlot <- function(model){
+    p1 <- ggplot(model, aes(.fitted, .resid))+geom_point()
+    p1 <- p1+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+    p1 <- p1+xlab("Fitted values")+ylab("Residuals")
+    p1 <- p1+ggtitle("Residual vs Fitted Plot")+theme_bw()
+    
+    p2<-ggplot(model, aes(qqnorm(.stdresid)[[1]], .stdresid))+geom_point(na.rm = TRUE)
+    p2<-p2+geom_abline(aes(qqline(.stdresid)))+xlab("Theoretical Quantiles")+ylab("Standardized Residuals")
+    p2<-p2+ggtitle("Normal Q-Q")+theme_bw()
+    
+    p3<-ggplot(model, aes(.fitted, sqrt(abs(.stdresid))))+geom_point(na.rm=TRUE)
+    p3<-p3+stat_smooth(method="loess", na.rm = TRUE)+xlab("Fitted Value")
+    p3<-p3+ylab(expression(sqrt("|Standardized residuals|")))
+    p3<-p3+ggtitle("Scale-Location")+theme_bw()
+    
+    p4<-ggplot(model, aes(seq_along(.cooksd), .cooksd))+geom_bar(stat="identity", position="identity")
+    p4<-p4+xlab("Obs. Number")+ylab("Cook's distance")
+    p4<-p4+ggtitle("Cook's distance")+theme_bw()
+    
+    p5<-ggplot(model, aes(.hat, .stdresid))+geom_point(aes(size=.cooksd), na.rm=TRUE)
+    p5<-p5+stat_smooth(method="loess", na.rm=TRUE)
+    p5<-p5+xlab("Leverage")+ylab("Standardized Residuals")
+    p5<-p5+ggtitle("Residual vs Leverage Plot")
+    p5<-p5+scale_size_continuous("Cook's Distance", range=c(1,5))
+    p5<-p5+theme_bw()+theme(legend.position="bottom")
+    
+    p6<-ggplot(model, aes(.hat, .cooksd))+geom_point(na.rm=TRUE)+stat_smooth(method="loess", na.rm=TRUE)
+    p6<-p6+xlab("Leverage hii")+ylab("Cook's Distance")
+    p6<-p6+ggtitle("Cook's dist vs Leverage hii/(1-hii)")
+    p6<-p6+geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed")
+    p6<-p6+theme_bw()
+    
+    return(list(rvfPlot=p1, qqPlot=p2, sclLocPlot=p3, cdPlot=p4, rvlevPlot=p5, cvlPlot=p6))
+}
+```
+
+
+Une fois que la fonction est créée, on peut l'appliquer à notre modèle. N'oubliez pas que la fonction prend comme argument le modèle. Je vais utiliser le modèle 1 : **reg1**
+
+
+```{r}
+library(grid)
+library(gridExtra)
+
+graphiques <- diagPlot(reg1) # Ceci ne marche pas comme dans le post.
+lbry<-c("grid", "gridExtra")
+graphiques
+lapply(lbry, require, character.only=TRUE, warn.conflicts = FALSE, quietly = TRUE)
+do.call(grid.arrange, c(graphiques, main="Diagnostic Plots", ncol=3))
+
+# On peut just utiliser cette option pour créer les graphiques importants de diagnostique
+
+plot(reg1)
+
+```
+
+## Question 8 
+
+Un de vos amis a dit qu'il serait préférable de considérer le logarithme du poids à la naissance comme la variable dépendante.
+
+  - Calculez la variable logm19 représentant le logarithme de m19.
+  - Exécutez la régression: régressez logm19 sur v012
+  - Comment interprétez-vous le coefficient de v012
+
+```{r}
+# Variable logm19
+poids_bon <- 
+  poids_bon %>% 
+  mutate(logm19 = log(m19))
+
+# Nouvelle régression
+
+reg_log <-
+  poids_bon %>% 
+  lm(formula = logm19 ~ v012)
+
+summary(reg_log)
+```
+
+**Interprétation**
+
+Une augmentation d'une année d'étude entraîne une augmentation du poids à la naissance de 0,27%.
+
+
+
+# PARTIE C: Régresssion avec variables dépendantes qualitatives
+
+bmk contient des données recueillies à Bamako, capitale du Mali, sur la mortalité infantile
+
+Name                              Description
+--------------------------------- -----------------------------------------------------
+`dead`                            Statut de survie de l'enfant (1= "decede", 0= "en vie")  
+`twin`                            Si l'enfant est un jumeau (1 = "jumeau", 0 = "unique")
+`female`                          Sexe de l'enfant (1 fille, 0 garçon)
+`agedc`                           Age au décès (en mois)
+`age15_19`                        Mère de l'enfant âgée de 15 à 19 ans, (1 si oui, 0 si non)
+`age35_49`                        Mère de l'enfant âgée de 35 à 49 ans, (1 si oui, 0 si non)
+`parity1`                         Enfant est de parité un (premier enfant)
+`parity6`                         Enfant est de parité 6 ou plus
+`bambara`                         Mère est d'ethnie Bambara (1 bambara, 0 autres)
+`primary`                         Mère de l'enfant a un niveau d'éducation primaire
+`secondary`                       Mère de l'enfant a un niveau d'éducation secondaire ou supérieur
+`id`                              Identifiant de l'enfant
+--------------------------------------------------------------------------------------
+
+## 1. Housekeeping
+
+
+
+```{r }
+
+rm(list = ls())
+
+library(devtools)
+#install_github("jrnold/qss-tidy")
+#devtools::install_github("kosukeimai/qss-package")
+#install.packages("haven")
+
+
+library(tidyverse)
+#library(ggpubr)         # help to combine figure
+#library(haven)
+#library(broom)
+library(readstata13)
+library(stargazer)
+
+library(summarytools)
+
+
+bmk <- read.dta13("../Data/bmk.dta")
+
+
+```
+
+## 2. Comprendre les données
+
+- D'où proviennent les données manquantes dans agedc?
+
+```{r}
+
+head(bmk)
+glimpse(bmk)
+summary(bmk)
+View(bmk)
+
+with(bmk,
+     print(ctable(agedc, dead, prop = "no")))
+
+
+
+```
+
+Les données sont manquantes pour deux raisons:
+- le répondant ne connaît pas le statut de décès de 353 enfants
+- 9309 enfants ne disposent pas d'informations sur leur jour de décès car cette question ne s'adresse qu'aux enfants décédés. Ça a du sens. Vous devez donc toujours faire attention à la manière dont les données sont manquantes.
+
+## 3. Creation de nouvelles variables
+
+```{r}
+
+bmk <-
+  bmk %>% 
+  mutate(educ =factor(case_when(
+    primary == 1 ~ "primaire",
+    secondary == 1 ~ "secondaire",
+    primary == 0 & secondary == 0 ~ "Pas d'education")            # Pourquoi?
+  ))   
+
+# Vous devez toujours vérifié si la variable que vous avez créée est bien fait
+
+freq(bmk$educ) 
+ctable(bmk$educ, bmk$primary, useNA = "ifany", prop = "no")
+ctable(bmk$educ, bmk$secondary, useNA = "ifany", prop = "no")
+
+
+
+```
+
+## 4. Statistiques descriptives 
+
+```{r}
+
+# Base R
+table(bmk$dead, useNA = "ifany")
+table(bmk$educ, useNA = "ifany")
+tab_dead_educ <- table(bmk$educ, bmk$dead, useNA = "ifany")
+addmargins(tab_dead_educ)
+
+
+# Package summarytools     
+freq(bmk$dead, order = "freq")         
+freq(bmk$dead, order = "freq", report.nas = FALSE)         
+
+descr(bmk$dead)                         
+
+ctable(bmk$educ, bmk$dead, report.nas = FALSE)          
+with(bmk, print(summarytools::ctable(educ, dead, report.nas = FALSE)))
+
+ctable(bmk$educ, bmk$dead, useNA = "no")          
+
+
+ggplot(bmk) +
+  geom_bar(aes(x = dead, y = ..prop.., group = 1))
+
+ggplot(bmk) +
+  geom_bar(aes(x = educ, fill = factor(dead)), position = "fill")
+
+# Il faut enlever alors les données manquantes
+
+  
+ggplot(bmk %>% filter(!is.na(educ) & !is.na(dead))) +
+  geom_bar(aes(x = educ, fill = factor(dead)), position = "fill")
+
+
+ggplot(bmk %>% filter(!is.na(educ) & !is.na(dead))) +
+  geom_bar(aes(x = educ, fill = factor(dead)), position = "dodge")
+
+
+## is.na(educ) donnera TRUE si la valeur de educ est manquante. Donc !is.na est le contraire.
+## Donc, filter(!is.na(educ) & !is.na(dead)) indique les données qui ne comportent pas de données manquantes ni pour educ, ni pour dead.
+
+
+## Relation entre twin et dead
+
+
+ggplot(bmk %>% filter(!is.na(twin) & !is.na(dead))) +
+  geom_bar(aes(x = twin, fill = factor(dead)), position = "fill")
+
+```
+
+
+## 5. Statistiques inférentielles
+
+#### 5.1 Modèle de probabilité linéaire simple
+
+```{r}
+
+bmk_old <- lm(formula = dead ~ twin, data = bmk)
+
+bmk_lpm <-
+  bmk %>% 
+  lm(formula = dead ~ twin)
+
+summary(bmk_lpm)
+
+coefficients(bmk_lpm)[2]
+
+bmk1 <-
+  bmk %>% 
+  filter(dead != "NA" , twin != "NA") %>% 
+  mutate(pred_dead = fitted.values(bmk_lpm), 
+         pred_deadc = coefficients(bmk_lpm)[1] + coefficients(bmk_lpm)[2]*twin)
+
+freq(bmk1$pred_dead, order = "freq")        
+freq(bmk1$pred_deadc, order = "freq")       
+
+
+bmk %>% 
+  ggplot(aes( x = twin, y = dead)) +
+  geom_point() +
+  geom_jitter() +
+  geom_smooth(method = "lm")
+
+
+```
+
+On dira qu'être jumeau accroît la probabilité de décès de 6,7% (0.0677*100).
+
+### 5.2  Modèle de probabilité linéaire - multivarié
+
+```{r}
+
+bmk_lpm_gen <- 
+  bmk %>% 
+  lm(formula = dead ~ twin + female + age15_19 + age35_49 + parity1 + parity6 + primary + secondary + bambara)
+
+summary(bmk_lpm_gen)  
+
+
+
+bmk_lpm_gen1 <- 
+  bmk %>% 
+  lm(formula = dead ~ twin + female + age15_19 + age35_49 + parity1 + parity6 + educ + bambara)
+
+summary(bmk_lpm_gen1)
+
+```
+
+
+## Modèle logit
+
+Comme nous avons donné un nom à notre modèle (bmk_logit), R ne produira aucune sortie de notre régression. Pour obtenir les résultats, nous utilisons la commande summary:
+
+
+```{r}
+
+bmk_logit <-
+  bmk %>% 
+  glm(formula = dead ~ twin + female + age15_19 + age35_49 + parity1 + parity6 +  primary + secondary + bambara, family = "binomial")
+
+summary(bmk_logit)
+
+
+
+```
+
+- Dans le résultat ci-dessus, la première chose que nous voyons est l'appel, c'est R qui nous rappelle le modèle que nous avons utilisé, les options que nous avons spécifiées, etc.
+
+- Nous voyons ensuite les résidus de déviance, qui sont une mesure de l'ajustement du modèle. Cette partie de la sortie montre la distribution des résidus de déviance pour les cas individuels utilisés dans le modèle. Nous expliquons ci-dessous comment utiliser les résumés de la statistique de déviance pour évaluer l'adéquation du modèle.
+
+- La partie suivante de la sortie montre les coefficients, leurs erreurs standard, la statistique z (parfois appelée statistique z de Wald) et les valeurs p associées. Seul **jumeau** est statistiquement significatif. Les coefficients de régression logistique donnent la variation de la **log odds** du résultat pour une augmentation **d'une unité de la variable prédictive**.
+
+- Les variables indicatrices ont une interprétation légèrement différente. Par exemple, le fait d'être un jumeau modifie le logarithme de l'odds de décès de 0,9026.
+
+- En dessous du tableau des coefficients se trouvent des indices d'ajustement, comprenant les résidus nuls et déviance et l'AIC. Je montrerai plus tard un exemple d'utilisation de ces valeurs pour évaluer l'adéquation du modèle.
+
+
+Nous pouvons utiliser la fonction **confint** pour obtenir des intervalles de confiance pour les estimations de coefficients. Notez que pour les modèles logistiques, les intervalles de confiance sont basés sur la fonction de log-vraisemblance profilée. Nous pouvons également obtenir des CI basés uniquement sur les erreurs standard en utilisant la méthode par défaut.
+
+
+
+### Modèle logit - Intervalle de confiance et odd ratio
+
+```{r}
+
+confint(bmk_logit)
+
+exp(coefficients(bmk_logit))
+
+exp(cbind(OR = coef(bmk_logit), confint(bmk_logit)))
+
+```
+
+- Être jumeau a 2,45 fois plus de chances de mourir que de naître unique, tous les autres facteurs sont fixes.
+- Par rapport à un bébé unique, les chances de mourir (plutôt que de ne pas mourir) sont multipliées par 2,4 pour les bébés juneaux.
+
+- Notez que même si R le produit, le rapport de cotes pour l'intercept n'est généralement pas interprété.
+
+------------------------
+
+- Being a twin has 2.45 times higher chances of dying compare to being born single, all other factors maintains fixed. 
+- Compared to a single baby, for a twin baby the odds of dying (versus not dying) increase by a factor of 2.45
+- Note that while R produces it, the odds ratio for the intercept is not generally interpreted.
+
+## Modèle probit
+
+
+```{r}
+
+bmk_probit <-
+bmk %>% 
+  glm(formula = dead ~ twin + female + age15_19 + age35_49 + parity1 + parity6 +  primary + secondary + bambara, family = "gaussian" )
+
+summary(bmk_probit)
+
+
+```
+
+Malheureusement, il n’existe aucun moyen d’expliquer ce résultat en termes de rapport de côtes (odds ratio). Vous interpréterez simplement le **signe** du paramètre estimé:
+- Un signe positif (+) signifie que la variable indépendante affecte positivement la variable dépendante
+- Un signe négatif (-) signifie que la variable indépendante affecte négativement la variable dépendante
+
+Et le **p value**. 
+
+- Une valeur de p inférieure à 0,05 (0,01 ou 0,001) signifie que la variable est **statistiquement** significative à 5% (1% ou 0,1% respectivement). Cependant, vous avez moins de pouvoir pour dire quelque chose à propos de la taille de l'effet. Pour cette raison, pour le modèle logit ou le modèle probit, il est préférable de **calculer la probabilité prédite** pour un groupe spécifique. Il y a différentes façons de le faire.
+
+Avant de faire cela, regardons rapidement tous nos résultats précédents:
+
+Unfortunately, there is no way to explain this result in terms of odd ratio. You will simply interpret the sign of the estimated parameter: 
+- A positive sign (+) means that the dependent variable affect positively the dependent variable
+- A negative sign (-) means that the dependent variable affect positively the dependent variable
+And the p value. A p value < than 0.05 (0.01 or 0.001) means that the variable is *statistically* significant at 5% (1% or 0.1% respectively). However, you have less power to say something about the size of the effect. For this reason, for logit model or the probit model, it is better to *compute the predicated probability* for specific group. There are different way that you can do it.
+
+Before we do that, lets quickly look at all our previous results:
+
+```{r}
+
+stargazer(bmk_lpm_gen, bmk_logit, bmk_probit, title = "Divers modèles de régression de variable dépendante dichotomique", align = TRUE, type = "text")
+
+```
+
+## Test statistiques
+
+
+```{r}
+### modèle non contraint (UM)
+
+bmk_logit_um <-
+  bmk %>% 
+  glm(formula = dead ~ twin + female + age15_19 + age35_49 + parity1 + parity6 +  primary + secondary + bambara, family = "binomial" )
+
+summary(bmk_logit_um)
+
+ll_um <- logLik(bmk_logit_um)
+ll_um
+
+
+### Modèle contraint (RM) 
+
+bmk_logit_rm <-
+  bmk %>% 
+  glm(formula = dead ~ twin + female + age15_19 + age35_49 + parity1 + parity6 + bambara, family = "binomial" )
+
+summary(bmk_logit_rm)
+
+ll_rm <- logLik(bmk_logit_rm)
+ll_rm
+
+## Likelihood ratio test
+
+LR <- -2*(ll_rm - ll_um)
+LR
+
+## Nombre de paramètres 2
+
+ll_rm
+ll_um
+LR
+
+```
+
+## Qualité de l'ajustement d'un modèle
+
+http://www.medicine.mcgill.ca/epidemiology/joseph/courses/epib-621/logfit.pdf
+
+
+
+## Régression avec variables dépendantes qualitatives: extension
+
+### Régression logistique multinomiales
+
+https://stats.idre.ucla.edu/r/dae/multinomial-logistic-regression/
+
+La base de données **Womenlf** du package **carData** de Fox, contient les données sur 263 femmes âgées de 21 à 30 ans, issues de l'enquête sociale de la populations canadienne en 1977. 
+cette base de données contient les informations suivantes:
+
+Variables            Description
+-------------------  -------------------------------------------------------------------
+partic               Participation au marché du travail (not.work, parttime, fulltime)
+hincome              Revenu du partenaire (en millier de dollars)
+children             Présence d'enfants dans le ménage (absent, present)
+region               Region (Atlantic, Quebec, Ontario, Paririe, BC)
+
+
+```{r}
+library(carData)
+data(package = "carData")
+data("Womenlf")
+
+summary(Womenlf)
+
+
+```
+
+Le modèle de régression logistique multinomial n'est pas un modèle traditionnel de GLM, et ne peut donc pas être estimé avec glm. Nous allons plutôt utiliser la fonction **multinom** du package **nnet**, qui fait partie de base R. Donc, nous n'avons pas besoin de le télécharcger avant de l'utiliser. Le package VGAM permet d'estimer le même modèle et bien d'autres modèles. 
+
+```{r}
+
+library(nnet)
+mod.multinom <- 
+  Womenlf %>% 
+  multinom(formula = partic ~ hincome + children + region)
+
+summary(mod.multinom)
+
+#S(mod.multinom)
+
+z_statistic <- summary(mod.multinom)$coefficients/summary(mod.multinom)$standard.errors
+z_statistic
+
+## 2 tailed z test 
+
+p <- (1 - pnorm(abs(z_statistic), 0, 1))*2
+p
+
+
+## Risque relatif 
+
+exp(coef(mod.multinom))
+
+```
+
+
+on peut changer la référence de la variable dépendante:
+
+```{r}
+
+Womenlf$partic1 <- relevel(Womenlf$partic, ref = "not.work")
+
+mod.multinom1 <- 
+  Womenlf %>% 
+  multinom(formula = partic1 ~ hincome + children + region)
+
+summary(mod.multinom1)
+
+
+```
+
+## Logit ordonné
+
+https://stats.idre.ucla.edu/r/dae/ordinal-logistic-regression/
+
+Il est estimé à partir de la fonction **polr** du package **MASS**
+
+
+```{r}
+library(MASS)
+
+mod.ordlog <- 
+  Womenlf %>% 
+  polr(formula = partic1 ~ hincome + children + region, Hess = TRUE)
+
+summary(mod.ordlog)
+
+exp(coef(mod.ordlog))
+
+```
+
+Pour les femmes qui ont des enfants à la maison, les chances de travailler (c’est-à-dire fulltime ou partime) sont 60% plus faibles que celles des femmes dont les enfants ne sont pas présents, toutes constantes restant inchangées.
+
+
+---------------------------------------- TU NE COUVRES PAS CECI
+
+## Probabilité prédite
+
+https://cran.r-project.org/web/packages/margins/vignettes/Introduction.html
+
+```{r}
+#install.packages("effects")
+library(effects)
+library(carData)
+
+
+bmklogit.mod <-
+  bmk %>% 
+  glm(formula = dead ~ twin + female + age15_19 + age35_49 + parity1 + parity6 +  primary + secondary + bambara, family = "binomial" )
+
+```
+
+
+
+
+
+
+## Predicted probability
+
+You can also use predicted probabilities to help you understand the model. Predicted probabilities can be computed for both categorical and continuous predictor variables. In order to create predicted probabilities we first need to create a new data frame with the values we want the independent variables to take on to create our predictions.
+
+We will start by calculating the predicted probability of dying at each value of parity, holding all other factors at a certain value. First we create and view the data frame.
+
+### X value at their reference 
+lets fix the value of the independent variable to their reference. (if continuous dependent variables, they will be set at their mean). Remember the reference is:
+R = {Twin = 0, female = 0, age15_19 = 0, age30_49 = 0, parity1 = 0, parity6 = 0, bambara = 0} or
+R = {Single baby, mother aged 20-29, parity1-5 and not bambara}
+
+
+```{r}
+
+# Remind the logit model
+summary(bmk_logit)
+
+coefficients(bmk_logit)[3]
+
+
+twin <- 0
+female <- 0 
+age15_19 <- 0
+age35_49 <- 0
+parity1 <- 0
+parity6 <- 0
+primary <- 0
+secondary <- 0
+bambara <- 0
+
+num <- exp(coefficients(bmk_logit)[1] + coefficients(bmk_logit)[2]*twin + coefficients(bmk_logit)[3]*female + coefficients(bmk_logit)[4]*age15_19 + coefficients(bmk_logit)[5]*age35_49 + coefficients(bmk_logit)[6]*parity1 + coefficients(bmk_logit)[7]*parity6 + coefficients(bmk_logit)[8]*primary + coefficients(bmk_logit)[9]*secondary + coefficients(bmk_logit)[10]*bambara)
+num
+
+den <- 1 + num
+den 
+
+p_single = (num / den)*1000
+p_single
+
+
+twin <- 1
+female <- 0 
+age15_19 <- 0
+age35_49 <- 0
+parity1 <- 0
+parity6 <- 0
+primary <- 0
+secondary <- 0
+bambara <- 0
+
+num <- exp(coefficients(bmk_logit)[1] + coefficients(bmk_logit)[2]*twin + coefficients(bmk_logit)[3]*female + coefficients(bmk_logit)[4]*age15_19 + coefficients(bmk_logit)[5]*age35_49 + coefficients(bmk_logit)[6]*parity1 + coefficients(bmk_logit)[7]*parity6 + coefficients(bmk_logit)[8]*primary + coefficients(bmk_logit)[9]*secondary + coefficients(bmk_logit)[10]*bambara)
+num
+
+den <- 1 + num
+den 
+
+p_twin = (num / den)*1000
+p_twin
+
+rr_twin_single <- p_twin / p_single
+rr_twin_single
+
+(p_twin/(1-p_twin) )/ (p_single / (1- p_single))
+
+
+twin <- 0
+female <- 1 
+age15_19 <- 0
+age35_49 <- 0
+parity1 <- 0
+parity6 <- 0
+primary <- 0
+secondary <- 0
+bambara <- 0
+
+
+
+
+
+# Now that you know how that works, lets do it with a more concise programming
+
+C1 <- c(1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+
+
+matrix_IV <- matrix(c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+                      0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+                      0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                      0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+                      0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+                      0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+                      0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                      0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+                      0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+                      0, 0, 0, 0, 0, 0, 0, 0, 0, 1), ncol = 10,
+                    dimnames=list(NULL, c("ref", "twin", "female",
+                                          "age15_19", "age35_49", "parity1", "parity6", "primary",
+                                          "secondary", "bambara")))
+matrix_IV
+
+coef_logit <- matrix(coefficients(bmk_logit), nrow = 10)
+#coef_logit <- coefficients(bmk_logit)
+
+matrix_num <- matrix_IV%*%coef_logit
+matrix_num
+coef_logit
+
+pp_logit <- matrix(exp(matrix_num)/(1 + exp(matrix_num))*1000, ncol = 10, 
+                   dimnames=list(NULL, c("pp_ref", "pp_twin", "pp_female",
+                                          "pp_age15", "pp_age35", "pp_par1", "pp_par6", "pp_prim",
+                                          "pp_sec", "pp_bam")))
+
+pp_logit
+p_single
+p_twin
+
+predicted_prob <- as.data.frame((pp_logit))
+predicted_prob <- 
+  predicted_prob %>% 
+  gather(key = pp_ref : pp_bam, value = "predicted probability") 
+  #mutate(relative_risk = `predicted probability`[i]/61.37103)
+
+predicted_prob
+  
+  
+relative_risk <- numeric(length = nrow(predicted_prob))  
+odd_ratio <- numeric(length = nrow(predicted_prob))  
+for (i in 1:10) {
+relative_risk[i] <- predicted_prob$`predicted probability`[i]/predicted_prob$`predicted probability`[1]
+odd_ratio[i] <- (predicted_prob$`predicted probability`[i]/(1 - predicted_prob$`predicted probability`[i]))/(predicted_prob$`predicted probability`[1]/(1 - predicted_prob$`predicted probability`[1]))
+}
+relative_risk
+odd_ratio
+
+logit_result <- cbind(predicted_prob, relative_risk, odd_ratio)
+
+logit_result
+
+```
+
+
+
+
+
+
+
+
+

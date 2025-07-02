@@ -1,0 +1,653 @@
+---
+title: "Application des methodes d'apprentissage automatique dans l'étude de la survie
+  des enfants au Burkina-Faso"
+author: "Adjiwanou - Aoudou"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+
+rm(list = ls())
+library(tidyverse) 
+library(summarytools)
+library(gtsummary)
+library(haven)
+
+```
+
+# Chargement des données 
+
+```{r}
+
+load("base_bf_complete.rda")
+
+```
+
+
+# Analyse descriptive 
+
+Comme d'habitude, avant tout, il faut toujours commencer par décrire la base de données afin de comprendre le jeu de données et de mener des analyses descriptives préliminaires afin d'avoir une première idée du sujet mis à l'étude. Ici, la variable d'intérêt principale est **l'état de survie de l'enfant**; qui est une variable binaire dont l'objectif est la construction des modèles de classification pouvant mieux discriminer ses modalités.
+
+Regardons les associations entre la variable à prédire **dead** avec toutes les prédicteurs considérés. 
+  
+```{r}
+
+data <- base %>% select(-m19,-v012)
+
+data %>%
+  tbl_summary(
+    include = c(educ,activite,attitude_violence,pouvoir_decision,age_mere,degmedia,ins_conj,sex_enfant,poids_nais,rang_naiss,interval_precedent,lieu_accouch,naissance_voulu,allaiter_heure,source_eau,type_toilet,contraception,taille_menage,sex_chef,niveau_vie,milieu_residence),
+    by = dead,
+    percent = "row",
+  ) %>%
+  add_p(
+    test = all_categorical() ~ "chisq.test",
+    pvalue_fun = scales::label_pvalue(accuracy = .001, decimal.mark = ",")
+  )
+
+?tbl_summary
+```
+  
+
+## Estimation du modèle de regression logistique
+
+  - Division de la base de donnée train et test
+
+```{r}
+
+library(caret)
+
+```
+
+
+```{r}
+
+set.seed(123)
+training_samples <- data$dead %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+
+
+data_train <- data[training_samples, ]
+data_test<- data[-training_samples, ]
+
+? createDataPartition
+
+freq(data$dead)
+
+freq(data_train$dead)
+freq(data_test$dead)
+```
+
+Dans le data train, il y a un gros problème de déséquilibre de données. Construire un modèle sur de telles données aura tendance à privilégier le classement de la classe majoritaire. Dans ces conditions, il faut rééquilibrer les données. Pour cela il existe plusieurs techniques d'équilibrage de donnée. Soit on suréchantillonne de la classe minoritaire en augmentant de façon synthétique le nombre d'exemples de la classe minoritaire, soit en sous-échantillonnant la classe majoritaire. Dans le cadre de cet exemple, on va suréchantillonner la classe minoritaire par simple réplication aléatoire <!-- (il existe plusieurs autre technique ex: SMOTE)-->
+
+
+```{r}
+
+majoritaire <- filter(data_train, dead == "a live")
+minoritaire <- filter(data_train, dead == "dead")
+
+difference_taille <- nrow(majoritaire) - nrow(minoritaire)
+difference_taille
+```
+
+On va dupliquer de façon aléatoire des échantillons de la classe minoritaire jusqu'à atteindre un équilibre avec la classe majoritaire.
+
+```{r}
+
+
+# Sous-echantillonnage (a faire par les etudiants)
+
+echantillon_sous <- sample_n(majoritaire, length(minoritaire), replace = TRUE)
+
+# Surechantillonnage
+echantillon_duplique <- sample_n(minoritaire, difference_taille, replace = TRUE)
+
+freq(echantillon_duplique$dead)
+
+# Mettre une variable qui indique que cela provient d'un échantillon dupliqué
+
+```
+
+Combinaison des données dupliquées avec la classe majoritaire pour former le nouvel ensemble de données équilibré
+
+```{r}
+
+data_train_bal2 <- rbind(data_train, echantillon_duplique)
+freq(data_train_bal2$dead)
+
+```
+
+Remarque : Il convient de noter que la duplication aléatoire peut introduire un certain degré de surapprentissage (overfitting), car les exemples dupliqués sont essentiellement des répétitions des exemples existants. Il est recommandé de tester différentes techniques de gestion du déséquilibre des données et de choisir celle qui convient le mieux à votre jeu de données spécifique.
+
+**Question: Cherchez et appliquer les autres techniques**
+
+
+  - construction du modèle
+
+```{r} 
+
+# entrainemnet sur les données déséquilibré
+model_logit <- glm(dead ~ ., data = data_train, family = binomial)
+
+model_logit %>% summary()
+
+# Entrainement sur les données équilibrées
+model_logit <- glm(dead ~ ., data = data_train_bal2, family = binomial)
+
+model_logit %>% summary()
+
+class(model_logit)
+
+freq(data_train_bal2$age_mere)
+
+```
+
+  - prediction sur le train et le test set 
+
+```{r}
+# A partir des données déséquilibrées
+# sur le data train
+
+prediction_train <- predict(model_logit, newdata = data_train,type = "response")
+prediction_train
+
+predicted_class_train <- if_else(prediction_train > 0.5, "dead", "a live")
+predicted_class_train
+
+# A partir des données équilibrées
+
+# sur le data train
+
+prediction_train <- predict(model_logit, newdata = data_train_bal2,type = "response")
+
+
+predicted_class_train <- if_else(prediction_train > 0.5, "dead", "a live")
+
+# sur le test set 
+
+y <- lapply(data_test, as.factor)
+y <- as.data.frame(y)
+data_test = y
+
+predicted_test <- predict(model_logit, newdata = data_test, type = "response")
+predicted_class_test <- if_else(predicted_test > 0.5, "dead", "a live")
+predicted_class_test
+
+
+# Tableau de comparaison
+
+comparaison1_ <- data.frame(
+  predicted_class_train = predicted_class_train,
+  dead = data_train_bal2$dead)
+
+ctable(comparaison1_$predicted_class_train, comparaison1_$dead, "no")
+
+# Comparaison données de test
+
+comparaison1_test <- data.frame(
+  predicted_class_test = predicted_class_test,
+  dead = data_test$dead)
+
+freq(comparaison1_test$predicted_class_test)
+
+ctable(comparaison1_test$predicted_class_test, comparaison1_test$dead, "no")
+
+```
+
+  - Validation du modèle: Il existe plusieurs métriques de validation; nous présentons quelques unes.
+
+## Matrice de confusion
+
+|              | Prédit Positif | Prédit Négatif |
+|--------------|----------------|----------------|
+| **Réel Positif** | TP (Vrais Positifs) | FN (Faux Négatifs) |
+| **Réel Négatif** | FP (Faux Positifs) | TN (Vrais Négatifs) |
+
+## Formules des indicateurs
+
+- **Accuracy = (TP + TN) / (TP + TN + FP + FN)**
+- **Précision = TP / (TP + FP)**
+- **Rappel = TP / (TP + FN)**
+- **Spécificité = TN / (TN + FP)**
+- **F1-score = 2 * (Précision * Rappel) / (Précision + Rappel)**
+- **Taux de faux positifs = FP / (FP + TN)**
+- **Taux de faux négatifs = FN / (FN + TP)**
+
+
+![](../../../../Images/matrice_confusion1.jpg)
+
+
+
+![](../../../../Images/matrice_confusion2.jpg)
+
+
+
+```{r}
+evaluation_prediction <- function(yobs, ypred, posLabel = 1) {
+
+    # Matrice de confusion
+  mc <- table(yobs, ypred)
+  
+  # Taux de bon classement (Accuracy)
+  tbc <- round(sum(diag(mc)) / sum(mc), 4)
+  
+  # Rappel / recall
+  recall <- mc[posLabel, posLabel] / sum(mc[posLabel, ])
+  
+  # Précision
+  precision <- mc[posLabel, posLabel] / sum(mc[, posLabel])
+  
+  # F1-Measure
+  
+  f1 <- 2.0 * (precision * recall) / (precision + recall)
+  
+  # Créer le tableau des métriques
+  
+  metrics <- data.frame(
+    Taux_de_bon_classement = tbc,
+    Rappel = round(recall, 3),
+    Précision = round(precision, 3),
+    F1_Score = round(f1, 3)
+  )
+  
+  # Retourner le tableau des métriques
+  return(metrics)
+}
+```
+
+
+```{r}
+
+evaluation_prediction(data_train_bal2$dead, predicted_class_train)
+
+```
+
+
+
+```{r}
+
+evaluation_prediction(data_test$dead, predicted_class_test)
+
+```
+
+- Pourquoi la précision est meilleure ici?
+- Faire différemment en sous-échantillonnant la classe majoritaire
+
+
+## Regularisation 
+
+### Regression logistique pénalisée LASSO
+
+
+  - création de la matrice des prédicteurs (sous forme exploitable par l'algorithme) comme on la fait dans le cas linéaire
+
+```{r}
+
+library(glmnet)
+
+x_train <- model.matrix(dead~., data_train_bal2)[,-1]
+y_train <- data_train_bal2$dead
+
+```
+
+**Recherche du meilleur lambda par  cross-validation à 10 plis**
+
+```{r}
+cv_lasso <- cv.glmnet(x_train, y_train, alpha =1, nfolds =10 , intercept= TRUE, family = "binomial", standardize = TRUE)
+```
+ 
+Visualisation des résultats de la validation croisée avec régularisation Lasso (la valeur optimale de lambda qui minimise l'erreur de validation croisée est en pointillé)
+
+```{r}
+plot(cv_lasso)
+```
+
+Le graphique affiche l'erreur de validation croisée en fonction du logarithme de lambda. La ligne verticale pointillée de gauche indique que le logarithme de la valeur optimale de lambda est d'environ exp(-5.4), ce qui est celui qui minimise l'erreur de prédiction. Cette valeur de lambda donnera le modèle le plus précis. La valeur exacte de lambda peut être visualisée comme suit :
+
+```{r}
+
+cv_lasso$lambda.min
+
+```
+
+*Entrainement du modèle LASSO, puis recherche du LASSO optimal*
+
+```{r}
+
+model_lasso <- glmnet(x_train,y_train, alpha = 1, family = "binomial")
+
+#Visualisation de l'évolution des coefficients selon valeur de lambda avec régularisation LASSO + ligne rouge indiquant le lambda optimal
+
+plot(model_lasso, xvar = "lambda", label = FALSE, xlab = ~ log(lambda))
+abline( v = log(cv_lasso$lambda.min), col = "red", lty = 2)
+```
+
+  - Modèle Lasso optimal
+
+```{r}
+
+model_lasso <- glmnet(x_train, y_train, alpha = 1, lambda = cv_lasso$lambda.min, family = "binomial")
+
+class(model_lasso)
+
+coef(model_lasso, s = 0.01)
+
+```
+
+
+  - Prédiction
+
+```{r}
+
+pred_lasso_train = predict(model_lasso, newx = x_train, type = "response")
+
+pred_lasso_train_class = if_else(pred_lasso_train > 0.5, "dead", "a live")
+
+
+x_test <- model.matrix(dead~., data_test)[,-1]
+pred_lasso=predict(model_lasso,newx = x_test,type = "response")
+
+pred_lasso_class = if_else(pred_lasso > 0.5,"dead" ,"a live")
+
+```
+
+  - Evaluation des performances
+
+```{r}
+
+evaluation_prediction(data_train_bal2$dead, pred_lasso_train_class)
+
+```
+
+```{r}
+evaluation_prediction(data_test$dead, apred_lasso_class)
+```
+
+
+### Regression logistique Ridge
+
+**Recherche de la meilleur lambda par  cross-validation à 10 plis**
+
+```{r}
+cv_ridge<- cv.glmnet(x_train, y_train, alpha =0, nfolds =10 , intercept= TRUE, family = "binomial", standardize = TRUE)
+```
+ 
+```{r}
+plot(cv_ridge)
+```
+
+
+```{r}
+cv_ridge$lambda.min
+```
+
+- Modèle Ridge optimal
+
+```{r}
+model_ridge <- glmnet(x_train, y_train, alpha = 0, lambda=cv_ridge$lambda.min, family = "binomial")
+```
+
+  - Prédiction
+
+```{r}
+pred_ridge_train=predict(model_ridge,newx = x_train,type = "response")
+pred_ridge_train_class=if_else(pred_ridge_train >0.5,"dead","alive")
+
+
+pred_ridge=predict(model_lasso,newx = x_test,type = "response")
+
+pred_ridge_class=if_else(pred_ridge >0.5,"dead","alive")
+
+```
+
+  - Evaluation des performances
+
+```{r}
+evaluation_prediction(data_train_bal2$dead,pred_ridge_train_class)
+```
+
+
+```{r}
+evaluation_prediction(data_test$dead,pred_ridge_class)
+```
+
+### Elasticnet
+
+```{r}
+cv_elastic<- cv.glmnet(x_train, y_train, alpha =0.3, nfolds =10 , intercept= TRUE, family = "binomial", standardize = TRUE)
+```
+
+- Modèle elasticnet optimal
+
+```{r}
+model_elastic <- glmnet(x_train, y_train, alpha = 0.3, lambda=cv_elastic$lambda.min, family = "binomial")
+```
+
+- Prédiction
+
+```{r}
+pred_elastic_train=predict(model_elastic,newx = x_train,type = "response")
+pred_elastic_train_class=if_else(pred_elastic_train >0.5,"dead","alive")
+
+
+pred_elastic=predict(model_elastic,newx = x_test,type = "response")
+
+pred_elastic_class=if_else(pred_elastic >0.5,"dead","alive")
+
+```
+
+  - Evaluation des performances
+
+```{r}
+evaluation_prediction(data_train_bal2$dead,pred_elastic_train_class)
+```
+
+
+```{r}
+evaluation_prediction(data_test$dead,pred_elastic_class)
+```
+
+
+
+
+## K plus proche voisin
+
+
+```{r}
+
+
+library(class)
+
+#k_values <- c(1:9)
+k_values <- c(1:3)
+
+# Fonction pour évaluer la performance du modèle KNN pour une valeur donnée de k
+knn_cv <- function(k) {
+  model <- knn.cv(train = x_train, 
+                  cl = y_train, 
+                  k = k)
+  predictions <- knn(train = x_train, 
+                     test = x_test, 
+                     cl = y_train, 
+                     k = k)
+  accuracy <- sum(predictions == data_test$dead) / nrow(data_test)
+  return(accuracy)
+}
+
+
+
+# Appliquer la validation croisée pour chaque valeur de k
+
+accuracies <- sapply(k_values, knn_cv)
+
+# Trouver la meilleure valeur de k
+
+best_k <- k_values[which.max(accuracies)]
+best_k
+
+cat("Meilleur k trouvé:", best_k)
+
+```
+
+l'hyperparamètre optimal pour le modèle est k=1
+
+```{r}
+k_nn_model <- knn(train =x_train, 
+             test = x_test, 
+             cl =y_train, 
+             k = 1,
+            prob = TRUE)
+```
+
+ 
+  - Evaluation des performances
+
+```{r}
+
+evaluation_prediction(data_test$dead, k_nn_model)
+
+```
+
+
+## Modèle ensembliste : Random Forest
+
+
+- Construction du modèle 
+
+```{r}
+library(randomForest)
+
+model_rf=randomForest(x_train, y_train)
+
+```
+
+```{r}
+plot(model_rf$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB", col="red")
+```
+
+```{r}
+set.seed(123)
+model_rf_optimal<- randomForest(x_train,y_train, ntree=1000, mtry=4) #mtry nombre de variables testées à chaque division par defaut vaut sqrt(p) dans le cas d'une classification 
+print(model_rf_optimal)
+```
+
+```{r}
+plot(model_rf_optimal$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+```
+
+- predictions avec le modèle optimal
+
+```{r}
+# sur le data train
+predicted_train_rf = predict(model_rf_optimal,newdata = x_train)
+
+# sur le test set 
+
+predicted_test_rf = predict(model_rf_optimal,newdata = x_test)
+```
+
+- Evaluation des performances
+
+```{r}
+
+evaluation_prediction(data_train_bal2$dead,predicted_train_rf)
+
+```
+
+```{r}
+evaluation_prediction(data_test$dead,predicted_test_rf)
+```
+
+Il existe plusieurs autres indicateurs dans le modèle Random Forest que l'on peut utiliser pour comprendre l'importance de chaque variable dans la prédiction. il s'agit par exemple, la valeur de GINI, la valeur de SHAPLEY etc.
+
+  - Visualisation de l'importance des variables
+
+```{r}
+varImpPlot(model_rf_optimal, type =2, main = "Importance des variables")
+```
+
+```{r}
+# Extraire les mesures d'importance
+importance <- importance(model_rf_optimal)
+importance <- as.data.frame(importance)
+importance$variable<- rownames(importance)
+```
+
+
+```{r}
+ggplot(importance %>% arrange(desc(MeanDecreaseGini)) %>% head(15)) +
+  geom_bar(aes(x = MeanDecreaseGini, y=variable),stat = "identity", fill = "blue") +
+  labs(x = "Mean Decrease Gini", y = "Variable") +
+  ggtitle("Les 15 variables les plus importantes avec RF") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## Resumé des performances pour l'ensemble des modèles ici developés
+
+```{r}
+
+glm=evaluation_prediction(data_test$dead,predicted_class_test)
+ridge=evaluation_prediction(data_test$dead,pred_ridge_class)
+lasso=evaluation_prediction(data_test$dead,pred_lasso_class)
+elasticnet=evaluation_prediction(data_test$dead,pred_elastic_class)
+#svm=evaluation_prediction(data_test$dead,pred_svm_test)
+knn=evaluation_prediction(data_test$dead,k_nn_model)
+Randonforest=evaluation_prediction(data_test$dead,predicted_test_rf)
+
+
+metrics=rbind(glm,ridge,lasso,elasticnet,knn,Randonforest)
+metrics
+
+model=c("Glm","Ridge","Lasso","Elasticnet","knn","Randonforest")
+
+cbind(model,metrics)
+```
+
+
+En conclusion on constate que dans l'ensemble les algorithmes d'apprentissage automatique de type *boite noire* tendent à mieux performer au vue des métriques ici considérées que les modèles de régression. En réalité, le choix définitif du meilleur modèle doit tenir compte non seulement des métriques de performances mais aussi des objectifs de l'étude. 
+
+
+
+
+
+## Autres modèles d'apprentissage automatique pour les problèmes de classification
+
+## Machine à vecteur de support (SVM)
+
+
+```{r}
+
+library(e1071)
+
+svm_model <- svm(dead ~ .,data=data_train, kernel = "linear", probability=TRUE)
+
+```
+
+
+  - Prédiction
+
+```{r}
+pred_svm_train=predict(svm_model,data_train_bal2[,-1])
+
+pred_svm_test=predict(svm_model,data_test[,-1])
+
+```
+
+  - Evaluation des performances
+
+```{r}
+evaluation_prediction(data_train_bal2$dead,pred_svm_train)
+```
+
+
+```{r}
+
+evaluation_prediction(data_test$dead,pred_svm_test)
+
+```
+
+

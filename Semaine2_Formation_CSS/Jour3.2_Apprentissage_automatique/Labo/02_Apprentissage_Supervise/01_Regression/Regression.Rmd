@@ -1,0 +1,658 @@
+---
+title: "Poids à la naissance des enfants au Burkina-Faso "
+author: "Viss/ho Adjiwanou & Aoudou Mounchingam"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_document
+---
+
+```{r}
+
+install.packages("gtsummary")
+#install.packages("labelled")
+
+rm(list = ls())
+library(tidyverse) 
+library(summarytools)
+library(gtsummary)
+library(haven)
+library(labelled)
+
+```
+
+# Chargement des données 
+
+```{r}
+
+rm(list = ls())
+load("dhs_child_west_africa.rda")
+
+freq(data$v000)
+
+data <- data %>% filter(v000=="BF8")
+
+
+```
+
+# Analyse descriptive 
+
+Avant tout, on commence toujours par décrire la base de donnée afin de la comprendre et de mener des analyses descriptives préliminaires afin d'avoir une première idée du jeux de données 
+
+  - sur la variable d'intérêt principale 
+  
+```{r}
+
+freq(data$m18)
+freq(data$m19)
+
+summary(data$m19)
+
+#class(data$m19a)
+#freq(data$m19a)
+
+```
+
+On a des valeurs abérantes sur cette variable de poids à la naissance et de missing. En consultant le codebook de dhs, **9996 représente les enfants non pesés** à la naissance et 9999 les enfants de poids non connu. On va les mettre manquantes
+
+## Important de comprendre les NA
+
+```{r}
+
+data$m19[data$m19 == 9996] <- NA_real_
+
+data$m19[data$m19 == 9998] <- NA_real_
+
+freq(data$m19)
+
+summary(data$m19)
+```
+
+
+
+## Visualisation
+
+```{r}
+
+ggplot(data) +
+  geom_histogram(aes(x = m19), fill="blue")
+
+ggplot(data) +
+  geom_boxplot(aes(y = m19))+
+  theme_minimal()
+
+ggplot(data) +
+  geom_point(aes(x = v012, y = m19), color="red")
+
+```
+
+## Association avec les prédicteurs et quelque visualisation 
+
+
+  - Box plot du poids à la naissance selon certaine caractéristiques 
+  
+```{r}
+
+ggplot(data) +
+  geom_boxplot(aes(x = sex_enfant, y = m19), color="blue")+
+  theme_minimal()
+
+
+ggplot(data) +
+  geom_boxplot(aes(x = educ, y = m19), color="blue")+
+  theme_minimal()
+
+ggplot(data) +
+  geom_boxplot(aes(x = age_mere, y = m19), color="lightblue")+
+  theme_minimal()
+
+
+ggplot(data) +
+  geom_boxplot(aes(x = lieu_accouch, y = m19), color="lightblue")+
+  theme_minimal()
+
+.
+.
+.
+
+```
+  
+On observe qu'il y a les valeurs manquantes, normalement il faut les traités et prendre des décisions en fonction de leur nature. 
+
+Pour l'heure, nous allons utiliser une imputation multiple avec le package mice
+
+```{r}
+
+
+
+data <- data %>% 
+  select(m19, dead, educ, activite, attitude_violence, pouvoir_decision, v012, age_mere, degmedia, ins_conj, sex_enfant, poids_nais, rang_naiss, interval_precedent, lieu_accouch, naissance_voulu, allaiter_heure, source_eau, type_toilet, contraception, taille_menage, sex_chef, niveau_vie, milieu_residence)
+
+```
+
+
+```{r}
+
+library(mice)
+
+#imputation <- mice(data, method = "rf", maxit = 50, seed = 123)
+
+base <- complete(imputation)
+
+save(base, file = "base_bf_complete.rda")
+
+```
+
+
+  - test de comparaison 
+  
+ici évaluer la normalité la variable m19. 
+
+  - Si normale, faire un t.test pour les variables à deux niveaux et Anova pour ceux ayant plus de deux niveaux
+  - Sinon, test de rank Kruskal wallis 
+
+Note. il y'a plusieurs variétés substentielles que je n'ai pas évoqué qu'il convient d'évoquer dans les cadres des tests d'hypothèses
+  
+
+=============================
+
+## Estimation du modèle de regression linéaire
+
+
+  - Division de la base en données d'entrainement et test
+  
+- CARET (short for Classification And REgression Training)  
+  
+```{r}
+
+rm(list = ls())
+
+load("base_bf_complete.rda")
+
+library(caret)
+
+data <- base %>% 
+  select(m19, educ, activite, attitude_violence, pouvoir_decision, age_mere, 
+         degmedia, ins_conj, sex_enfant, rang_naiss, interval_precedent, 
+         lieu_accouch, naissance_voulu, allaiter_heure, source_eau, type_toilet, 
+         contraception, taille_menage, sex_chef, niveau_vie, milieu_residence)
+
+```
+
+
+```{r}
+
+set.seed(123)
+
+d <- sort(sample(nrow(data), nrow(data) * 0.7))
+
+data_train <- data[d, ]
+
+data_test <- data[-d,]
+
+```
+
+  - Construction du modèle
+  
+```{r}
+
+model_reg <- lm(m19 ~ ., data = data_train)
+
+model_reg %>% summary()
+
+```
+  
+  - Prédiction du poids à la naissance 
+  
+```{r}
+
+# Poids prédit sur les données d'entrainement
+
+poid_predit <- predict(model_reg, newdata = data_train[,-1])
+
+# Poids prédit sur les données test
+
+poid_predit2 <- predict(model_reg, newdata = data_test[,-1])
+
+```
+  
+  - Validation du modèle : Outils de validation le MSE (Mean square error)
+
+La formule du MSE (Mean Squared Error, ou Erreur Quadratique Moyenne en français) est la suivante :
+
+$$MSE = \frac{1}{n}\sum_{i = 1}^n(y_i - \hat{y_i})^2$$
+
+Le MSE est une mesure de la qualité d'un modèle de prédiction. Voici ce que le MSE indique :
+
+**1. Erreur Moyenne** : Le MSE calcule la moyenne des carrés des erreurs de prédiction. Chaque erreur est la différence entre la valeur réelle et la valeur prédite $(y_i - \hat{y_i}$
+
+
+**2. Sensibilité aux Grandes Erreurs** : En élevant les erreurs au carré, le MSE attribue plus de poids aux grandes erreurs par rapport aux petites erreurs. Cela signifie que le MSE est particulièrement sensible aux grandes erreurs de prédiction, ce qui peut être utile pour identifier des modèles qui parfois font de grosses erreurs.
+
+**3. Échelle** : Le MSE est exprimé dans les mêmes unités que la variable à prédire, mais élevé au carré. Par exemple, si vous prédisez des distances en mètres, le MSE sera en mètres carrés. Cela peut parfois rendre l'interprétation directe du MSE difficile.
+
+Lors de la validation d'un modèle de prédiction, le MSE est couramment utilisé pour les raisons suivantes :
+
+**1. Comparaison de Modèles** : En comparant le MSE de différents modèles, vous pouvez identifier lequel a, en moyenne, les prédictions les plus proches des valeurs réelles. Un modèle avec un MSE plus faible est généralement considéré comme ayant de meilleures performances de prédiction.
+
+**2. Évaluation de la Performance** : Le MSE fournit une seule valeur résumée qui peut être utilisée pour évaluer la performance globale du modèle sur l'ensemble des données de test.
+
+**3. Optimisation** : Lors de l'ajustement des hyperparamètres de modèles (comme en utilisant des techniques de validation croisée), le MSE peut être utilisé comme critère d'optimisation pour trouver les meilleurs paramètres qui minimisent l'erreur de prédiction.
+
+```{r}
+
+MSE_train <- (1/nrow(data_train))*sum(sqrt((data_train$m19 - poid_predit)^2))
+
+MSE_test <- (1/nrow(data_test))*sum(sqrt((data_test$m19-poid_predit2)^2))
+
+MSE_train
+MSE_test
+
+```
+
+On voit que l'erreur quadratique moyen ne s'éloigne pas trop entre les données d’entraînement et les données test. Ce qui montre que le modèle se généralise assez bien avec une MSE = 
+
+
+## Regularisation 
+
+```{r}
+
+library(glmnet)
+
+```
+ 
+ 
+ Rappel : 
+x : matrice des variables prédicteurs (chaque variable dichotomisée)
+y : la variable de réponse ou de résultat
+alpha : le paramètre de mélange elasticnet. Les valeurs autorisées comprennent :
+"1" : pour la régression lasso
+"0" : pour la régression ridge
+une valeur comprise entre 0 et 1 (disons 0,5) pour la régression elasticnet.
+lamba : une valeur numérique définissant la quantité de rétrécissement (pénalité) à spécifier).
+
+Dans la régression pénalisée, on doit spécifier un lambda constant pour ajuster la quantité de rétrécissement du coefficient. Le meilleur lambda pour les données, peut être défini comme le lambda qui minimise le taux d'erreur de prédiction par cross validation. Ceci peut être déterminé automatiquement à l'aide de la fonction cv.glmnet().
+
+
+
+```{r}
+
+dummyVars
+
+#Convertir les facteurs en variables indicatrices
+
+dummy <- dummyVars(" ~ .", data = data_train, fullRank = TRUE)
+data_transformed <- data.frame(predict(dummy, newdata = data_train))
+
+# Matrice des prédicteurs
+
+x_train <- as.matrix(data_transformed[,-1])
+y_train <- data_train$m19
+
+```
+ 
+### Régularisation de type LASSO 
+ 
+ 
+$$
+\sum_{i=1}^n{(Y_i - X\beta|_i)^2}+ \lambda \sum_{j=1}^p |\beta_j|, 0 \leq \lambda \leq 1.
+$$
+
+ **cherchons le meilleur lambda par  cross-validation à 10 plis**
+
+```{r}
+
+cv_lasso <- cv.glmnet(x_train, y_train, alpha = 1, nfolds = 10, intercept= TRUE, standardize = TRUE)
+
+```
+ 
+Visualisation des résultats de la validation croisée avec régularisation Lasso (la valeur optimale de lambda qui minimise l'erreur de validation croisée est en pointillé)
+
+```{r}
+
+plot(cv_lasso)
+
+```
+
+Le graphique affiche l'erreur de validation croisée en fonction du logarithme de lambda. La ligne verticale pointillée de gauche indique que le logarithme de la valeur optimale de lambda est d'environ exp(2.2), ce qui est celui qui minimise l'erreur de prédiction. Cette valeur de lambda donnera le modèle le plus précis. La valeur exacte de lambda peut être visualisée comme suit :
+
+```{r}
+
+cv_lasso$lambda.min
+cv_lasso$lambda.1se
+
+```
+
+*Entrainement du modèle LASSO, puis recherche du LASSO optimal*
+
+```{r}
+
+model_lasso <- glmnet(x_train,y_train, alpha = 1)
+
+#Visualisation de l'évolution des coefficients selon la valeur de lambda avec régularisation LASSO + ligne rouge indiquant le lambda optimal
+
+plot(model_lasso, xvar = "lambda", label = FALSE, xlab = ~ log(lambda))
+abline( v = log(cv_lasso$lambda.min), col = "red", lty = 2)
+
+```
+
+
+- Modèle Lasso optimal
+
+```{r}
+
+model_lasso <- glmnet(x_train, y_train, alpha = 1, lambda = cv_lasso$lambda.min)
+
+```
+
+ - Prédiction
+
+```{r}
+
+# Sur les données d'entrainement
+pred_lasso_train <- predict(model_lasso, newx = x_train)
+
+# Sur les données test   
+
+dummy <- dummyVars(" ~ .", data = data_test, fullRank = TRUE)
+data_transformed <- data.frame(predict(dummy, newdata = data_test))
+
+x_test <- as.matrix(data_transformed[,-1])
+pred_lasso_test <- predict(model_lasso,newx = x_test)
+
+```
+ 
+ - Validation du modèle 
+
+```{r}
+
+MSE_train <- (1/nrow(data_train))*sum(sqrt((data_train$m19-pred_lasso_train)^2))
+MSE_test <- (1/nrow(data_test))*sum(sqrt((data_test$m19-pred_lasso_test)^2))
+
+MSE_train
+MSE_test
+```
+
+              Entrainement.     Test
+Regression    362.06            357.4
+Lasso         361.9384          356.5862
+
+
+### Régularisation de type Ridge
+
+
+$$
+\sum_{i=1}^n{(Y_i - X\beta|_i)^2}+ \lambda \sum_{j=1}^p \beta_j^2, 0 \leq \lambda \leq 1.
+$$
+
+ **cherchons le meilleur lambda par  cross-validation à 10 plis**
+
+```{r}
+
+cv_ridge <- cv.glmnet(x_train, y_train, alpha = 0, nfolds =10 , intercept= TRUE, standardize = TRUE)
+
+```
+ 
+Visualisation des résultats de la validation croisée avec régularisation Lasso (la valeur optimale de lambda qui minimise l'erreur de validation croisée est en pointillé)
+
+```{r}
+plot(cv_ridge)
+```
+
+
+```{r}
+
+cv_lasso$lambda.min
+cv_ridge$lambda.min
+
+
+cv_lasso$lambda.1se
+
+```
+
+*Entrainement du modèle ridge, puis recherche du ridge optimal*
+
+```{r}
+
+model_ridge <- glmnet(x_train, y_train, alpha = 0)
+
+plot(model_ridge, xvar = "lambda", label = FALSE, xlab = ~ log(lambda))
+abline( v = log(cv_ridge$lambda.min), col = "red", lty = 2)
+
+```
+
+
+- Modèle Ridge optimal
+
+```{r}
+
+model_ridge <- glmnet(x_train, y_train, alpha = 0, lambda = cv_ridge$lambda.min)
+
+```
+
+ - Prédiction
+
+```{r}
+# Sur les données d'entrainement
+pred_ridge_train <- predict(model_ridge,newx = x_train)
+
+# sur les données test 
+pred_ridge_test <- predict(model_ridge,newx = x_test)
+
+```
+ 
+ - Validation du modèle 
+
+```{r}
+
+MSE_train <- (1/nrow(data_train))*sum(sqrt((data_train$m19-pred_ridge_train)^2))
+MSE_test <- (1/nrow(data_test))*sum(sqrt((data_test$m19-pred_ridge_test)^2))
+
+MSE_train
+MSE_test
+
+```
+
+
+
+
+### Regularisation de type elastic net 
+
+
+$$
+ \sum_{i=1}^n{(Y_i - X\beta|_i)^2}+ (1 - \alpha) ( \sum_{j=1}^p \ \beta_j^2 )  + (\alpha) ( \lambda \sum_{j=1}^p \ |\beta_j|  )
+$$  
+  
+```{r}
+
+cv_elastic <- cv.glmnet(x_train, y_train, alpha = 0.3, nfolds = 10 , intercept= TRUE, standardize = TRUE)
+
+```
+
+- Modèle elasticnet optimal
+
+```{r}
+
+model_elastic <- glmnet(x_train, y_train, alpha = 0.5, lambda = cv_elastic$lambda.min)
+
+```
+
+- Prédiction
+
+```{r}
+
+# Sur les données d'entrainement
+pred_elastic_train <- predict(model_elastic,newx = x_train)
+
+# sur les données test 
+pred_elastic_test <- predict(model_elastic,newx = x_test)
+
+```
+
+
+- Validation du modèle 
+
+```{r}
+
+MSE_train <- (1/nrow(data_train))*sum(sqrt((data_train$m19-pred_elastic_train)^2))
+MSE_test <- (1/nrow(data_test))*sum(sqrt((data_test$m19-pred_elastic_test)^2))
+
+MSE_train
+MSE_test
+
+```
+
+
+
+**Première conclusion :** On constate que les modèles de régression linéaire pénalisés tendent à diminuer légèrement la MSE par rapport à la régression linéaire classique.
+
+
+
+----------------------------
+
+
+
+
+
+## Autres modèles d'apprentissage automatique pour les problèmes de regression
+
+## Machine à vecteur de support (SVM)
+
+Notons que le type de SVM utilisé pour la régression est  appelé "Support Vector Regression" (SVR).
+
+```{r}
+
+library(e1071)
+
+svr_model <- svm(m19 ~ ., data = data_train, type = "eps-regression", kernel = "linear")  #le kernel peut être modifier pour optimiser le modèle.
+
+?svm
+```
+
+- Prédiction
+
+```{r}
+# Sur les données d'entrainement
+
+pred_svm_train <- predict(svr_model,newdata = data_train[,-1])
+
+# sur les données test 
+pred_svm_test <- predict(svr_model,newdata =data_test[,-1])
+```
+
+
+- Validation du modèle 
+
+```{r}
+
+MSE_train <- (1/nrow(data_train))*sum(sqrt((data_train$m19-pred_svm_train)^2))
+MSE_test <- (1/nrow(data_test))*sum(sqrt((data_test$m19-pred_svm_test)^2))
+
+MSE_train
+MSE_test
+```
+
+
+
+
+On peut optimiser en jouant sur le noyau. 
+
+Ce modèle propose une MSE de 354 plus pétit que ceux des modèles précédents
+
+
+## Modèle ensembliste : Random Forest 
+
+
+```{r}
+
+library(randomForest)
+
+model_rf <- randomForest(m19 ~ ., data = data_train, ntree = 1500, mtry = 4, importance = TRUE)
+
+?randomForest
+```
+
+
+```{r}
+plot(model_rf$mse, type = "l", xlab = "nombre d'arbres", ylab = "MSE", col="red")
+```
+
+
+- Prédiction
+
+```{r}
+
+# Sur les données d'entrainement
+
+pred_rf_train <- predict(model_rf,newdata = data_train[,-1])
+
+# sur les données test 
+
+pred_rf_test <- predict(model_rf,newdata = data_test[,-1])
+
+
+```
+
+
+- Validation du modèle 
+
+```{r}
+
+MSE_train=(1/nrow(data_train))*sum(sqrt((data_train$m19-pred_rf_train)^2))
+MSE_test=(1/nrow(data_test))*sum(sqrt((data_test$m19-pred_rf_test)^2))
+
+MSE_train
+MSE_test
+
+```
+
+
+              Entrainement.     Test
+Regression    362.06            357.4
+Lasso         361.9384          356.5862
+Ridge         361.8285          356.3734
+Elastic       361.9258          356.4135
+SVM           360.3439          354.2792
+Forêts alé.   259.2464          363.3698
+
+
+---------------------------
+
+## Deep learning 
+
+
+```{r}
+#install.packages("neuralnet")
+library(neuralnet)
+
+nn_model <- neuralnet(
+  y_train ~ .,  # Spécifier la formule
+  data = x_train, 
+  hidden = 4,  # Nombre de neurones dans chaque couche cachée
+  linear.output = TRUE, # Pour la régression
+  )
+```
+
+
+- Prédiction
+
+```{r}
+# Sur les données d'entrainement
+pred_nn_train=predict(nn_model,newdata = x_train)
+
+# sur les données test 
+pred_nn_test=predict(nn_model,newdata =x_test)
+```
+
+
+- Validation du modèle 
+
+```{r}
+MSE_train=(1/nrow(data_train))*sum(sqrt((data_train$m19-pred_nn_train)^2))
+MSE_test=(1/nrow(data_test))*sum(sqrt((data_test$m19-pred_nn_test)^2))
+
+MSE_train
+MSE_test
+```
+
+On a une MSE=359.24
+
+Bien que ceci ne soit qu'une démonstration, nous pouvons optimiser ce modèle en jouant sur le nombre de neurones et sur nombre de couche caché. 
