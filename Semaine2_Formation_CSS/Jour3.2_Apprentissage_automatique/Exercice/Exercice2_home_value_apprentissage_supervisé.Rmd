@@ -1,0 +1,131 @@
+---
+title: "Exercices de Machine Learning sur la base Kaggle des prix des maisons"
+author: "Ton Nom"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output: html_document
+---
+
+
+https://www.kaggle.com/datasets/prokshitha/home-value-insights
+
+
+# 📘 Contexte
+
+Ce document propose une série d'exercices pour explorer et modéliser un jeu de données de 1000 maisons, incluant les variables suivantes :
+
+- **Square_Footage** : Taille en pieds carrés
+- **Num_Bedrooms** : Nombre de chambres
+- **Num_Bathrooms** : Nombre de salles de bain
+- **Year_Built** : Année de construction
+- **Lot_Size** : Taille du terrain (acres)
+- **Garage_Size** : Capacité du garage
+- **Neighborhood_Quality** : Qualité du quartier (1-10)
+- **House_Price** : Prix de la maison (variable cible)
+
+---
+
+# 🟢 Exercices de base : Comprendre et explorer les données
+
+## Exercice 1 – Résumé statistique
+
+- Calculez la moyenne, la médiane, l’écart-type, les minimums et maximums pour chaque variable explicative.
+- Question : que remarquez-vous sur la distribution de `Square_Footage`, `Lot_Size` et `Neighborhood_Quality` ?
+
+## Exercice 2 – Visualisations exploratoires
+
+- Tracez un histogramme de `House_Price`.
+- Créez un nuage de points entre `Square_Footage` et `House_Price`.
+- Affichez la matrice de corrélation et interprétez les corrélations les plus fortes.
+
+---
+
+# 🟡 Exercices intermédiaires : Modélisation simple
+
+## Exercice 3 – Régression linéaire simple
+
+- Entraînez un modèle linéaire avec `Square_Footage` comme unique prédicteur.
+- Affichez la pente, l’ordonnée à l’origine et le R².
+- Prédisez le prix d’une maison de 2000 pieds carrés.
+
+## Exercice 4 – Régression linéaire multiple
+
+- Entraînez un modèle avec toutes les variables explicatives.
+- Évaluez la performance (R², RMSE, MAE).
+- Identifiez les variables les plus significatives.
+
+## Exercice 5 – Validation croisée
+
+- Séparez les données en un ensemble d’entraînement (70 %) et un test (30 %).
+- Entraînez le modèle sur l’ensemble d’entraînement et testez la performance.
+- Comparez les résultats (overfitting ?).
+
+---
+
+# 🟢 Exercices avancés : Optimisation et modèles alternatifs
+
+## Exercice 6 – Transformation des variables
+
+- Créez `Age = 2025 - Year_Built`.
+- Transformez `Lot_Size` par un logarithme si sa distribution est asymétrique.
+- Ré-entraînez le modèle multiple et comparez les performances.
+
+## Exercice 7 – Ridge et Lasso
+
+- Entraînez un modèle Ridge Regression.
+- Comparez le R² au modèle linéaire.
+- Entraînez un modèle Lasso et observez quelles variables sont "shrinkées".
+
+## Exercice 8 – Random Forest Regression
+
+- Entraînez un Random Forest avec 100 arbres.
+- Comparez la performance avec le modèle linéaire.
+- Visualisez l’importance des variables.
+
+---
+
+# 🟡 Exercices d’application
+
+## Exercice 9 – Simulation et prédiction
+
+**Scénario fictif :**
+- Square_Footage = 2500
+- Num_Bedrooms = 4
+- Num_Bathrooms = 3
+- Year_Built = 2010
+- Lot_Size = 0.5
+- Garage_Size = 2
+- Neighborhood_Quality = 8
+
+- Prédisez le prix avec deux modèles.
+- Comparez les prédictions.
+
+## Exercice 10 – Interprétation des coefficients
+
+- Expliquez un coefficient positif pour `Neighborhood_Quality`.
+- Que signifie un coefficient proche de zéro pour `Garage_Size` dans le Lasso ?
+
+---
+
+# 🟢 Exercices bonus
+
+## Exercice 11 – Feature Engineering
+
+- Créez une variable d’interaction : `Square_Footage * Neighborhood_Quality`.
+- Ajoutez-la au modèle et observez l’impact.
+
+## Exercice 12 – Analyse des résidus
+
+- Tracez la distribution des résidus.
+- Identifiez les biais ou patterns éventuels.
+
+---
+
+# 🌟 Suggestion de projet final
+
+**Construisez un pipeline complet :**
+
+1. Nettoyage des données
+2. Feature engineering
+3. Entraînement de plusieurs modèles
+4. Comparaison des métriques
+5. Présentation d’un rapport complet

@@ -1,0 +1,85 @@
+---
+title: "Exercices : Exploration & Modélisation"
+author: "Visseho Adjiwanou, PhD"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+# 1. Contexte et description du jeu de données
+
+Le jeu *me_cfs_vs_depression_dataset* contient :
+
+| Variable                       | Description (unité)                                                                   |
+|--------------------------------|----------------------------------------------------------------------------------------|
+| `age`                          | Âge (années)                                                                           |
+| `gender`                       | Sexe (*Male*, *Female*)                                                                |
+| `fatigue_severity_scale_score` | Sévérité de la fatigue [0–10 ; 10 = fatigue élevée]                                    |
+| `depression_phq9_score`        | Gravité de la dépression PHQ‑9 [0–27]                                                  |
+| `pem_present`                  | Post‑Exertional Malaise (Oui/Non)                                                      |
+| `pem_duration_hours`           | Durée du PEM (heures)                                                                  |
+| `sleep_quality_index`          | Qualité perçue du sommeil [1–10]                                                       |
+| `brain_fog_level`              | Niveau de « brain‑fog »                                                                |
+| `physical_pain_score`          | Douleur physique [1–10]                                                                |
+| `stress_level`                 | Stress [1–10]                                                                          |
+| `work_status`                  | Statut professionnel                                                                    |
+| `social_activity_level`        | Activité sociale                                                                       |
+| `exercise_frequency`           | Fréquence de l’exercice                                                                |
+| `meditation_or_mindfulness`    | Pratique d’une activité de pleine conscience (Oui/Non)                                 |
+| `hours_of_sleep_per_night`     | Heures de sommeil moyennes                                                             |
+| `diagnosis`                    | **Variable cible** : *Depression*, *ME/CFS* ou *Both*                                  |
+
+# 2. Préparation et pré‑traitement des données
+
+## 2.1 Dimensions et types de variables  
+Donnez les dimensions du jeu de données ainsi que les types des variables.
+
+## 2.2 Statistiques descriptives de la variable `diagnosis`  
+Effectifs, pourcentages et diagramme en barres.
+
+## 2.3 Imputation des valeurs manquantes  
+Proposez une technique d’imputation adaptée des valeurs manquantes.
+
+## 2.4 Standardisation des données  
+Appliquez un centrage‑réduction sur les variables numériques.
+
+# 3. Réduction de dimension (PCA)
+
+## 3.1 Analyse en composantes principales (ACP)
+
+- Réalisez une ACP sur les variables numériques pré‑traitées.  
+- Indiquez combien de composantes expliquent **≥80%** de la variance.  
+- Tracez le *scree plot* et projetez les individus sur les deux premiers axes.
+
+# 4. Clustering non supervisé
+
+## 4.1 K‑means
+
+1. Réalisez une classification K‑means sur les données standardisées.  
+2. Déterminez le nombre optimal de clusters *k*.  
+3. Interprétez chaque cluster : décrivez les profils dominants (âge, symptômes, habitudes).  
+4. Visualisez les clusters dans l’espace des deux premières composantes de l’ACP.
+
+# 5. Analyse de profils & segmentation
+
+- **Profiler** chaque cluster (ex. : « Cluster 1 : jeunes adultes actifs, stress modéré »).
+
+# 6. Application du modèle Random Forest
+
+## 6.1 Modèle de base
+
+1. Séparez les données (70 % train / 30 % test).  
+2. Entraînez un Random Forest par défaut pour prédire `diagnosis`.  
+3. Évaluez‑le :  
+   - Accuracy globale  
+   - Precision, Recall, F1‑score **par classe**  
+   - Matrice de confusion (avec interprétation)
+
+## 6.2 Recherche d’hyperparamètres
+
+1. Réalisez un *grid search* (ou *random search*) sur `ntree`, `mtry`, etc.  
+2. Sélectionnez le meilleur modèle.  
+3. Comparez ses performances au modèle de base (tableau récapitulatif).  
+4. Utilisez le modèle final pour prédire `diagnosis` sur le jeu test
+5. Evaluer les performances du modèle final
